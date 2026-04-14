@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "XPath Shortcut v4",
+  "version": "4.0.0",
+  "description": "ショートカットキーでXPath/CSS指定した要素をクリック",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_title": "XPath Shortcut 表示/非表示"
+  },
+  "minimum_chrome_version": "114"
+}
