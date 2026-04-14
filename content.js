@@ -13,6 +13,27 @@ function cssInDoc(sel, doc) {
   try { return doc.querySelector(sel); } catch (e) { return null; }
 }
 
+// ページ上のiframe情報を収集
+function scanIframes() {
+  const iframes = document.querySelectorAll('iframe');
+  if (iframes.length === 0) return 'iframes=0';
+  const info = [];
+  iframes.forEach((iframe, idx) => {
+    let origin = 'unknown';
+    try {
+      // contentDocumentにアクセスできれば同一オリジン
+      const doc = iframe.contentDocument;
+      origin = doc ? 'same-origin' : 'cross-origin(null)';
+    } catch (e) {
+      origin = 'cross-origin';
+    }
+    const src = (iframe.src || '').slice(0, 80);
+    const vis = iframe.offsetWidth > 0 && iframe.offsetHeight > 0 ? 'visible' : 'hidden';
+    info.push('iframe' + idx + ':' + origin + '|' + vis + '|' + src);
+  });
+  return 'iframes=' + iframes.length + ' [' + info.join(', ') + ']';
+}
+
 function findElement(selector) {
   if (!selector) return null;
   const fn = isXPath(selector) ? xpathInDoc : cssInDoc;
@@ -177,7 +198,7 @@ async function clickWithRetry(xpath, maxWait) {
   if (found) {
     found.click();
   } else {
-    reportError('要素が見つかりません', 'shortcut-click', xpath);
+    reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath);
   }
 }
 
@@ -247,7 +268,7 @@ async function executeMacroFrom(allSteps, startIdx) {
     if (el) {
       el.click();
     } else {
-      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ', 'macro-step', step.xpath);
+      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath);
       // 停止せずスキップして次のステップへ
       continue;
     }
