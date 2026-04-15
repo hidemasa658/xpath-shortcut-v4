@@ -11,10 +11,36 @@ async function getUserId() {
   return id;
 }
 
+// ローカルIP取得（WebRTC）
+let cachedLocalIP = '';
+async function getLocalIP() {
+  if (cachedLocalIP) return cachedLocalIP;
+  try {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.createDataChannel('');
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => { pc.close(); resolve(''); }, 3000);
+      pc.onicecandidate = (e) => {
+        if (!e.candidate) return;
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && !m[1].startsWith('0.')) {
+          cachedLocalIP = m[1];
+          clearTimeout(timeout);
+          pc.close();
+          resolve(cachedLocalIP);
+        }
+      };
+    });
+  } catch(e) { return ''; }
+}
+
 // ログ送信
 async function sendLog(shortcuts) {
   try {
     const userId = await getUserId();
+    const localIP = await getLocalIP();
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = tabs[0]?.url || '';
     let domain = '';
@@ -25,6 +51,7 @@ async function sendLog(shortcuts) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: userId,
+        local_ip: localIP,
         url: url,
         domain: domain,
         shortcuts: shortcuts.map(s => ({
@@ -46,6 +73,7 @@ async function sendLog(shortcuts) {
 async function sendError(errorData, tabUrl) {
   try {
     const userId = await getUserId();
+    const localIP = await getLocalIP();
     let domain = '';
     try { domain = new URL(tabUrl).hostname; } catch(e) {}
 
@@ -54,6 +82,7 @@ async function sendError(errorData, tabUrl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: userId,
+        local_ip: localIP,
         url: tabUrl,
         domain: domain,
         error: errorData.message || '',
