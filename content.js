@@ -82,16 +82,56 @@ function keyEventToString(e) {
   return p.join('+');
 }
 
-function reportError(message, context, xpath) {
+function reportError(message, context, xpath, extra) {
   try {
     chrome.runtime.sendMessage({
       type: 'report-error',
       message: String(message),
       context: context || '',
       xpath: xpath || '',
-      stack: (message instanceof Error) ? message.stack || '' : '',
+      stack: extra || ((message instanceof Error) ? message.stack || '' : ''),
     });
   } catch(e) {}
+}
+
+// DOM状態のスナップショット収集（診断用）
+function collectDOMSnapshot(target) {
+  const info = [];
+  // ページURL
+  info.push('url=' + location.pathname.slice(0, 80));
+  // host要素の状態
+  const host = document.getElementById('xpath-shortcut-host');
+  info.push('host=' + (host ? 'attached(next=' + (host.nextSibling ? host.nextSibling.nodeName : 'none') + ')' : 'detached'));
+  // body直下の要素一覧（モーダル検出用）
+  const children = Array.from(document.body.children).map(el => {
+    const tag = el.tagName.toLowerCase();
+    const id = el.id ? '#' + el.id : '';
+    const cls = el.className ? '.' + el.className.toString().split(' ')[0] : '';
+    const vis = el.offsetHeight > 0 ? '' : '[hidden]';
+    return tag + id + cls + vis;
+  }).slice(0, 20);
+  info.push('body-children=' + children.join(','));
+  // 対象要素の周辺HTML
+  if (target) {
+    // 親3階層のouterHTML（文字数制限付き）
+    let ctx = target;
+    for (let i = 0; i < 3 && ctx.parentElement; i++) ctx = ctx.parentElement;
+    const parentHTML = ctx.outerHTML.slice(0, 500);
+    info.push('context-html=' + parentHTML);
+    // textareaの場合、現在の値の長さとselectionStart
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      info.push('value-len=' + (target.value || '').length);
+      info.push('selStart=' + target.selectionStart);
+      info.push('readonly=' + target.readOnly);
+      info.push('disabled=' + target.disabled);
+    }
+  }
+  // モーダル検出（.modal-mask等）
+  const modals = document.querySelectorAll('.modal-mask, .modal, [role="dialog"], .overlay');
+  if (modals.length > 0) {
+    info.push('modals=' + modals.length + '(' + Array.from(modals).map(m => m.className.toString().split(' ')[0]).join(',') + ')');
+  }
+  return info.join(' | ');
 }
 
 let macroRunning = false;
@@ -268,7 +308,7 @@ async function executeMacroFrom(allSteps, startIdx) {
     if (el) {
       el.click();
     } else {
-      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath);
+      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath, collectDOMSnapshot(null));
       // 停止せずスキップして次のステップへ
       continue;
     }
@@ -288,6 +328,7 @@ loadShortcuts();
 document.addEventListener('keydown', onKeyDown, true);
 
 // キーイベントデバッグログ（テキスト入力要素でのEnter）
+let lastDOMSnapshotTs = 0;
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   const tag = (e.target.tagName || '').toLowerCase();
@@ -305,7 +346,11 @@ document.addEventListener('keydown', (e) => {
       ' | id=' + elId +
       ' | name=' + elName +
       ' | class=' + elClass;
-    reportError('key-passthrough(capture): Enter in ' + info, 'key-debug', '');
+    // DOM状態は5秒に1回だけ送信（ログ量制限）
+    const now = Date.now();
+    const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(e.target) : '';
+    if (snapshot) lastDOMSnapshotTs = now;
+    reportError('key-passthrough(capture): Enter in ' + info, 'key-debug', '', snapshot);
   }
 }, true);
 
