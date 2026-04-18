@@ -184,12 +184,24 @@ function onKeyDown(e) {
       return;
     }
     // ランダム選択（xpath が random: で始まる場合）
-    // 形式: random:セレクタ1|セレクタ2|セレクタ3
+    // 形式: random:N:セレクタ1|セレクタ2|セレクタ3 (Nは選択数、省略時1)
     if (match.xpath && match.xpath.startsWith('random:')) {
-      const candidates = match.xpath.slice(7).split('|').map(s => s.trim()).filter(s => s);
+      const body = match.xpath.slice(7);
+      let count = 1;
+      let selectorsPart = body;
+      const numMatch = body.match(/^(\d+):/);
+      if (numMatch) {
+        count = parseInt(numMatch[1]);
+        selectorsPart = body.slice(numMatch[0].length);
+      }
+      const candidates = selectorsPart.split('|').map(s => s.trim()).filter(s => s);
       if (candidates.length === 0) return;
-      const picked = candidates[Math.floor(Math.random() * candidates.length)];
-      clickWithRetry(picked, 3000);
+      // シャッフルしてcount個選択
+      const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+      const picks = shuffled.slice(0, Math.min(count, shuffled.length));
+      for (const picked of picks) {
+        clickWithRetry(picked, 3000);
+      }
       return;
     }
     // ステップがあれば連続実行
@@ -314,9 +326,18 @@ async function executeMacroFrom(allSteps, startIdx) {
     }
     // ランダム選択ステップ
     if (step.xpath && step.xpath.startsWith('random:')) {
-      const candidates = step.xpath.slice(7).split('|').map(s => s.trim()).filter(s => s);
-      if (candidates.length > 0) {
-        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      const body = step.xpath.slice(7);
+      let count = 1;
+      let selectorsPart = body;
+      const numMatch = body.match(/^(\d+):/);
+      if (numMatch) {
+        count = parseInt(numMatch[1]);
+        selectorsPart = body.slice(numMatch[0].length);
+      }
+      const candidates = selectorsPart.split('|').map(s => s.trim()).filter(s => s);
+      const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+      const picks = shuffled.slice(0, Math.min(count, shuffled.length));
+      for (const picked of picks) {
         const el = await waitForElement(picked, 5000);
         if (el) { el.click(); } else {
           reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', picked, collectDOMSnapshot(null));
