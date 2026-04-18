@@ -122,14 +122,18 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       { xpath: '//button[normalize-space()="薬歴入力"]', delay: 0 },
       { xpath: '//button[normalize-space()="指導ナビ"]', delay: 0 },
     ]},
-    { key: 'Alt+A', xpath: '//label[@for="medication-guidance-guidance-check-0"]', name: '', steps: [] },
+    { key: 'Alt+A', xpath: '//label[@for="medication-guidance-guidance-check-0"]', name: '一括チェック', steps: [
+      { xpath: '//label[@for="medication-guidance-guidance-check-2"]', delay: 0 },
+      { xpath: '//label[@for="medication-guidance-effect-content-check-4-0"]', delay: 0 },
+      { xpath: '//label[@for="sent-matter-guidance-check"]', delay: 0 },
+    ]},
     { key: 'Alt+S', xpath: '//label[@for="medication-guidance-guidance-check-1"]', name: '', steps: [] },
-    { key: 'Alt+D', xpath: '//label[@for="medication-guidance-guidance-check-2"]', name: '', steps: [] },
+    { key: 'Alt+D', xpath: '//label[@for="compare-prescription-check"]', name: '', steps: [] },
     { key: 'Alt+F', xpath: '//label[@for="sent-matter-check"]', name: '', steps: [] },
     { key: 'Alt+G', xpath: 'tab:tico-run.kabob.io/counters/3151/EUZ95rvZojcYbSNjYBabZ82o', name: '', steps: [] },
     { key: 'Alt+B', xpath: '//button[normalize-space()="患者データの紐付け"]', name: '', steps: [] },
     { key: 'Alt+R', xpath: '//*[@id="__layout"]/div/div/div[3]/div/div/div[2]/div/div[2]/div[5]/button[1]', name: '問診情報すべて選択から薬歴', steps: [
-      { xpath: '//button[normalize-space()="患者基礎情報へ反映"]', delay: 1 },
+      { xpath: '//button[normalize-space()="患者基礎情報へ反映"]', delay: 0 },
       { xpath: '//button[normalize-space()="薬歴入力"]', delay: 0 },
       { xpath: '//button[normalize-space()="指導ナビ"]', delay: 0 },
     ]},
@@ -142,6 +146,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
       { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
     ]},
+    { key: 'Alt+H', xpath: 'key:Enter', name: '', steps: [
+      { xpath: '', delay: 1 },
+    ]},
+    { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
   sendLog(defaults);
