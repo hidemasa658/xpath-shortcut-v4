@@ -183,6 +183,15 @@ function onKeyDown(e) {
       startCopyPicker();
       return;
     }
+    // ランダム選択（xpath が random: で始まる場合）
+    // 形式: random:セレクタ1|セレクタ2|セレクタ3
+    if (match.xpath && match.xpath.startsWith('random:')) {
+      const candidates = match.xpath.slice(7).split('|').map(s => s.trim()).filter(s => s);
+      if (candidates.length === 0) return;
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      clickWithRetry(picked, 3000);
+      return;
+    }
     // ステップがあれば連続実行
     if (match.steps && match.steps.length > 0) {
       if (macroRunning) return;
@@ -300,6 +309,18 @@ async function executeMacroFrom(allSteps, startIdx) {
       target.dispatchEvent(new KeyboardEvent('keyup', { key: keyName, bubbles: true }));
       if (keyName === 'Enter') {
         target.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', bubbles: true }));
+      }
+      continue;
+    }
+    // ランダム選択ステップ
+    if (step.xpath && step.xpath.startsWith('random:')) {
+      const candidates = step.xpath.slice(7).split('|').map(s => s.trim()).filter(s => s);
+      if (candidates.length > 0) {
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        const el = await waitForElement(picked, 5000);
+        if (el) { el.click(); } else {
+          reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', picked, collectDOMSnapshot(null));
+        }
       }
       continue;
     }
