@@ -407,6 +407,30 @@ document.addEventListener('keydown', (e) => {
   }
 }, false);
 
+// テキスト入力中はhost要素をDOMから一時除去（Nuxtフレームワーク干渉防止）
+let hostRemovedForInput = false;
+document.addEventListener('focusin', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'textarea' || tag === 'input' || e.target.isContentEditable) {
+    const h = document.getElementById('xpath-shortcut-host');
+    if (h && h.parentNode) {
+      h.remove();
+      hostRemovedForInput = true;
+    }
+  }
+});
+document.addEventListener('focusout', (e) => {
+  if (hostRemovedForInput) {
+    hostRemovedForInput = false;
+    // 少し遅延して復帰（focusout→focusinの連続切り替え対策）
+    setTimeout(() => {
+      if (!hostRemovedForInput && !document.getElementById('xpath-shortcut-host') && barState.visible) {
+        document.body.appendChild(host);
+      }
+    }, 200);
+  }
+});
+
 // マクロ復帰チェック（ページ遷移後の続行）
 if (window === window.top) {
   chrome.storage.local.get('macroState', (data) => {
