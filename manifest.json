@@ -32,5 +32,13 @@
     },
     "default_title": "XPath Shortcut 表示/非表示"
   },
-  "minimum_chrome_version": "114"
+  "minimum_chrome_version": "114",
+  "commands": {
+    "toggle-bar": {
+      "suggested_key": {
+        "default": "Alt+0"
+      },
+      "description": "バーの表示/非表示を切り替え"
+    }
+  }
 }

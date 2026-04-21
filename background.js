@@ -160,6 +160,13 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.tabs.sendMessage(tab.id, { type: 'toggle-bar' }).catch(() => {});
 });
 
+// ショートカットキー（Alt+0）でバー表示/非表示を切り替え
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command === 'toggle-bar') {
+    chrome.tabs.sendMessage(tab.id, { type: 'toggle-bar' }).catch(() => {});
+  }
+});
+
 // メッセージ処理
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'get-shortcuts') {
