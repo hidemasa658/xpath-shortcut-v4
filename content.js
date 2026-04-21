@@ -251,13 +251,42 @@ async function insertText(expr) {
   }
 }
 
+// 位置指定XPath（/div[3]/button[1]等）かどうか判定
+function isPositionalXPath(xpath) {
+  return xpath && /\/\w+\[\d+\]/.test(xpath);
+}
+
+// 要素の情報を収集（テキストベースXPath提案用）
+function describeElement(el) {
+  const tag = el.tagName.toLowerCase();
+  const id = el.id ? 'id=' + el.id : '';
+  const cls = el.className ? 'class=' + el.className.toString().slice(0, 60) : '';
+  const text = (el.textContent || '').trim().slice(0, 60);
+  const name = el.getAttribute('name') || '';
+  const role = el.getAttribute('role') || '';
+  const forAttr = el.getAttribute('for') || '';
+  const parts = ['tag=' + tag];
+  if (id) parts.push(id);
+  if (cls) parts.push(cls);
+  if (name) parts.push('name=' + name);
+  if (role) parts.push('role=' + role);
+  if (forAttr) parts.push('for=' + forAttr);
+  if (text) parts.push('text=' + text);
+  return parts.join(' | ');
+}
+
 async function clickWithRetry(xpath, maxWait) {
   const el = findElement(xpath);
-  if (el) { el.click(); return; }
+  if (el) {
+    el.click();
+    if (isPositionalXPath(xpath)) reportError('element-found: ' + describeElement(el), 'element-info', xpath);
+    return;
+  }
   // リトライ（最大maxWaitミリ秒）
   const found = await waitForElement(xpath, maxWait);
   if (found) {
     found.click();
+    if (isPositionalXPath(xpath)) reportError('element-found: ' + describeElement(found), 'element-info', xpath);
   } else {
     reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath);
   }
