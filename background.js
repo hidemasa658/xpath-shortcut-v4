@@ -150,6 +150,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       { xpath: '', delay: 1 },
     ]},
     { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
+    { key: 'Alt+Z', xpath: 'copy:', name: 'テキストコピー', steps: [] },
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
   sendLog(defaults);
