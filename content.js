@@ -197,7 +197,8 @@ function onKeyDown(e) {
       const candidates = selectorsPart.split('|').map(s => s.trim()).filter(s => s);
       if (candidates.length === 0) return;
       // シャッフルしてcount個選択
-      const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+      const shuffled = candidates.slice();
+      for (let si = shuffled.length - 1; si > 0; si--) { const sj = Math.floor(Math.random() * (si + 1)); [shuffled[si], shuffled[sj]] = [shuffled[sj], shuffled[si]]; }
       const picks = shuffled.slice(0, Math.min(count, shuffled.length));
       for (const picked of picks) {
         clickWithRetry(picked, 3000);
@@ -346,11 +347,12 @@ async function executeMacroFrom(allSteps, startIdx) {
     if (step.xpath && step.xpath.startsWith('key:')) {
       const keyName = step.xpath.slice(4).trim();
       const target = document.activeElement || document.body;
-      target.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true }));
-      target.dispatchEvent(new KeyboardEvent('keyup', { key: keyName, bubbles: true }));
+      const keyOpts = { key: keyName, code: keyName, bubbles: true, cancelable: true };
+      target.dispatchEvent(new KeyboardEvent('keydown', keyOpts));
       if (keyName === 'Enter') {
-        target.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', bubbles: true }));
+        target.dispatchEvent(new KeyboardEvent('keypress', keyOpts));
       }
+      target.dispatchEvent(new KeyboardEvent('keyup', keyOpts));
       continue;
     }
     // ランダム選択ステップ
@@ -364,7 +366,8 @@ async function executeMacroFrom(allSteps, startIdx) {
         selectorsPart = body.slice(numMatch[0].length);
       }
       const candidates = selectorsPart.split('|').map(s => s.trim()).filter(s => s);
-      const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+      const shuffled = candidates.slice();
+      for (let si = shuffled.length - 1; si > 0; si--) { const sj = Math.floor(Math.random() * (si + 1)); [shuffled[si], shuffled[sj]] = [shuffled[sj], shuffled[si]]; }
       const picks = shuffled.slice(0, Math.min(count, shuffled.length));
       for (const picked of picks) {
         const el = await waitForElement(picked, 5000);
@@ -438,28 +441,30 @@ document.addEventListener('keydown', (e) => {
 }, false);
 
 // テキスト入力中はhost要素をDOMから一時除去（Nuxtフレームワーク干渉防止）
-let hostRemovedForInput = false;
-document.addEventListener('focusin', (e) => {
-  const tag = (e.target.tagName || '').toLowerCase();
-  if (tag === 'textarea' || tag === 'input' || e.target.isContentEditable) {
-    const h = document.getElementById('xpath-shortcut-host');
-    if (h && h.parentNode) {
-      h.remove();
-      hostRemovedForInput = true;
-    }
-  }
-});
-document.addEventListener('focusout', (e) => {
-  if (hostRemovedForInput) {
-    hostRemovedForInput = false;
-    // 少し遅延して復帰（focusout→focusinの連続切り替え対策）
-    setTimeout(() => {
-      if (!hostRemovedForInput && !document.getElementById('xpath-shortcut-host') && barState.visible) {
-        document.body.appendChild(host);
+// トップフレームのみ（barState, hostはトップフレームで定義される）
+if (window === window.top) {
+  let hostRemovedForInput = false;
+  document.addEventListener('focusin', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'textarea' || tag === 'input' || e.target.isContentEditable) {
+      const h = document.getElementById('xpath-shortcut-host');
+      if (h && h.parentNode) {
+        h.remove();
+        hostRemovedForInput = true;
       }
-    }, 200);
-  }
-});
+    }
+  });
+  document.addEventListener('focusout', (e) => {
+    if (hostRemovedForInput) {
+      hostRemovedForInput = false;
+      setTimeout(() => {
+        if (!hostRemovedForInput && !document.getElementById('xpath-shortcut-host') && barState.visible) {
+          document.body.appendChild(host);
+        }
+      }, 200);
+    }
+  });
+}
 
 // マクロ復帰チェック（ページ遷移後の続行）
 if (window === window.top) {
