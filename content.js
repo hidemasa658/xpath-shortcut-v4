@@ -378,6 +378,7 @@ async function executeMacroFrom(allSteps, startIdx) {
     const el = await waitForElement(step.xpath, 5000);
     if (el) {
       el.click();
+      if (isPositionalXPath(step.xpath)) reportError('element-found: ' + describeElement(el), 'element-info', step.xpath);
     } else {
       reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath, collectDOMSnapshot(null));
       // 停止せずスキップして次のステップへ
