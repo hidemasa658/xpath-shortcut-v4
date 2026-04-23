@@ -165,6 +165,8 @@ function onKeyDown(e) {
   trackShortcutTiming(match.key);
 
   try {
+    // newtab: は自動実行専用（キー押下では何もしない）
+    if (match.xpath && match.xpath.startsWith('newtab:')) return;
     // タブ切り替え（xpath が tab: で始まる場合）
     if (match.xpath && match.xpath.startsWith('tab:')) {
       const url = match.xpath.slice(4).trim();

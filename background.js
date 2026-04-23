@@ -151,6 +151,12 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     ]},
     { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
     { key: 'Alt+Z', xpath: 'copy:', name: 'テキストコピー', steps: [] },
+    { key: '', xpath: 'newtab:solamichi.jp', name: '新規タブ自動実行', steps: [
+      { xpath: '//button[normalize-space()="指導開始"]', delay: 1 },
+      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
+      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
+      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
+    ]},
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
   sendLog(defaults);
@@ -166,6 +172,42 @@ chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'toggle-bar') {
     chrome.tabs.sendMessage(tab.id, { type: 'toggle-bar' }).catch(() => {});
   }
+});
+
+// 新規タブ検知 → newtab:ドメイン のショートカットを自動実行
+chrome.tabs.onCreated.addListener((tab) => {
+  // タブが読み込み完了したら処理
+  const listener = (tabId, changeInfo) => {
+    if (tabId !== tab.id || changeInfo.status !== 'complete') return;
+    chrome.tabs.onUpdated.removeListener(listener);
+    chrome.tabs.get(tabId, (t) => {
+      if (chrome.runtime.lastError || !t || !t.url) return;
+      const url = t.url.toLowerCase();
+      chrome.storage.local.get('shortcuts', (data) => {
+        const shortcuts = data.shortcuts || [];
+        for (const sc of shortcuts) {
+          if (!sc.xpath || !sc.xpath.startsWith('newtab:')) continue;
+          const domain = sc.xpath.slice(7).trim().toLowerCase();
+          if (domain && url.includes(domain)) {
+            // マクロとして実行
+            const allSteps = [{ xpath: '', delay: 0 }]; // ステップ1はスキップ（newtab:自体は操作なし）
+            (sc.steps || []).forEach(s => allSteps.push(s));
+            if (allSteps.length > 1) {
+              chrome.tabs.sendMessage(tabId, {
+                type: 'resume-macro',
+                allSteps: allSteps.slice(1), // newtab:部分を除いたステップ
+                currentStep: 0,
+              }).catch(() => {});
+            }
+            break;
+          }
+        }
+      });
+    });
+  };
+  chrome.tabs.onUpdated.addListener(listener);
+  // 30秒でリスナー解除（安全策）
+  setTimeout(() => chrome.tabs.onUpdated.removeListener(listener), 30000);
 });
 
 // メッセージ処理
