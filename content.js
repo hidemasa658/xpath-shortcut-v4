@@ -225,7 +225,7 @@ async function insertText(expr) {
   const xpath = expr.substring(pipeIdx + 1).trim();
   const lines = textPart.split(',').join('\n') + '\n';
   const el = await waitForElement(xpath, 3000);
-  if (!el) { reportError('要素が見つかりません', 'shortcut-click', xpath); return; }
+  if (!el) { reportError('要素が見つかりません', 'shortcut-click', xpath, collectDOMSnapshot(null)); return; }
   el.focus();
   // textarea / input
   if ('value' in el) {
@@ -292,7 +292,7 @@ async function clickWithRetry(xpath, maxWait) {
     found.click();
     if (shouldSendElementInfo(xpath)) reportError('element-found: ' + describeElement(found), 'element-info', xpath);
   } else {
-    reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath);
+    reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath, collectDOMSnapshot(null));
   }
 }
 
