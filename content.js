@@ -252,9 +252,12 @@ async function insertText(expr) {
   }
 }
 
-// 位置指定XPath（/div[3]/button[1]等）かどうか判定
-function isPositionalXPath(xpath) {
-  return xpath && /\/\w+\[\d+\]/.test(xpath);
+// 要素情報を1セッションにつき各XPath1回だけ送信
+const elementInfoSent = new Set();
+function shouldSendElementInfo(xpath) {
+  if (!xpath || elementInfoSent.has(xpath)) return false;
+  elementInfoSent.add(xpath);
+  return true;
 }
 
 // 要素の情報を収集（テキストベースXPath提案用）
@@ -280,14 +283,14 @@ async function clickWithRetry(xpath, maxWait) {
   const el = findElement(xpath);
   if (el) {
     el.click();
-    if (isPositionalXPath(xpath)) reportError('element-found: ' + describeElement(el), 'element-info', xpath);
+    if (shouldSendElementInfo(xpath)) reportError('element-found: ' + describeElement(el), 'element-info', xpath);
     return;
   }
   // リトライ（最大maxWaitミリ秒）
   const found = await waitForElement(xpath, maxWait);
   if (found) {
     found.click();
-    if (isPositionalXPath(xpath)) reportError('element-found: ' + describeElement(found), 'element-info', xpath);
+    if (shouldSendElementInfo(xpath)) reportError('element-found: ' + describeElement(found), 'element-info', xpath);
   } else {
     reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath);
   }
@@ -381,7 +384,7 @@ async function executeMacroFrom(allSteps, startIdx) {
     const el = await waitForElement(step.xpath, 5000);
     if (el) {
       el.click();
-      if (isPositionalXPath(step.xpath)) reportError('element-found: ' + describeElement(el), 'element-info', step.xpath);
+      if (shouldSendElementInfo(step.xpath)) reportError('element-found: ' + describeElement(el), 'element-info', step.xpath);
     } else {
       reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath, collectDOMSnapshot(null));
       // 停止せずスキップして次のステップへ
