@@ -505,10 +505,11 @@ if (window === window.top) {
   document.addEventListener('focusin', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'textarea' || tag === 'input' || e.target.isContentEditable) {
+      // フラグを先にセット（focusoutのsetTimeoutによる復元をキャンセルするため）
+      hostRemovedForInput = true;
       const h = document.getElementById('xpath-shortcut-host');
       if (h && h.parentNode) {
         h.remove();
-        hostRemovedForInput = true;
       }
     }
   });
