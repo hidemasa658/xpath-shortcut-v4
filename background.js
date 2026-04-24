@@ -157,6 +157,12 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
       { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
     ]},
+    { key: '', xpath: 'watch:', name: 'クリック時自動実行', steps: [
+      { xpath: '//button[normalize-space()="指導開始"]', delay: 1 },
+      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
+      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
+      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
+    ]},
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
   sendLog(defaults);
@@ -288,6 +294,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         chrome.tabs.sendMessage(tabs[0].id, { type: 'start-picker', idx: msg.idx }).catch(() => {});
       }
     });
+    return;
+  }
+
+  // watch: トリガー（要素クリック→新規タブでマクロ実行）
+  if (msg.type === 'watch-triggered') {
+    const steps = msg.steps || [];
+    if (steps.length === 0) return;
+    // 新規タブが開くのを待機（10秒以内）
+    const onCreated = (tab) => {
+      chrome.tabs.onCreated.removeListener(onCreated);
+      clearTimeout(watchTimeout);
+      const onUpdated = (tabId, changeInfo) => {
+        if (tabId !== tab.id || changeInfo.status !== 'complete') return;
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        chrome.tabs.sendMessage(tabId, {
+          type: 'resume-macro',
+          allSteps: steps,
+          currentStep: 0,
+        }).catch(() => {});
+      };
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      setTimeout(() => chrome.tabs.onUpdated.removeListener(onUpdated), 30000);
+    };
+    chrome.tabs.onCreated.addListener(onCreated);
+    const watchTimeout = setTimeout(() => chrome.tabs.onCreated.removeListener(onCreated), 10000);
     return;
   }
 

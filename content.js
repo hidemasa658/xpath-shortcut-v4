@@ -165,8 +165,9 @@ function onKeyDown(e) {
   trackShortcutTiming(match.key);
 
   try {
-    // newtab: は自動実行専用（キー押下では何もしない）
+    // newtab: / watch: は自動実行専用（キー押下では何もしない）
     if (match.xpath && match.xpath.startsWith('newtab:')) return;
+    if (match.xpath && match.xpath.startsWith('watch:')) return;
     // タブ切り替え（xpath が tab: で始まる場合）
     if (match.xpath && match.xpath.startsWith('tab:')) {
       const url = match.xpath.slice(4).trim();
@@ -400,8 +401,38 @@ function loadShortcuts() {
   chrome.runtime.sendMessage({ type: 'get-shortcuts' }, (res) => {
     if (chrome.runtime.lastError) return;
     shortcuts = res || [];
+    updateWatchEntries();
   });
 }
+
+// watch: クリック監視（要素クリック→新規タブでマクロ実行）
+let watchEntries = [];
+function updateWatchEntries() {
+  watchEntries = [];
+  for (const sc of shortcuts) {
+    if (sc.xpath && sc.xpath.startsWith('watch:')) {
+      const selector = sc.xpath.slice(6).trim();
+      if (selector) {
+        watchEntries.push({ selector, steps: sc.steps || [] });
+      }
+    }
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (watchEntries.length === 0) return;
+  for (const entry of watchEntries) {
+    const watchedEl = findElement(entry.selector);
+    if (!watchedEl) continue;
+    if (watchedEl === e.target || watchedEl.contains(e.target)) {
+      chrome.runtime.sendMessage({
+        type: 'watch-triggered',
+        steps: entry.steps,
+      });
+      break;
+    }
+  }
+}, true);
 
 // 全フレームでキー監視
 loadShortcuts();
