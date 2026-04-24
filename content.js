@@ -264,11 +264,12 @@ function shouldSendElementInfo(xpath) {
 }
 
 // 要素の情報を収集（テキストベースXPath提案用）
+// コンテナ要素のtextContentは個人情報を含む可能性があるため、
+// ボタン・リンク・ラベル等の小要素のみテキストを収集する
 function describeElement(el) {
   const tag = el.tagName.toLowerCase();
   const id = el.id ? 'id=' + el.id : '';
   const cls = el.className ? 'class=' + el.className.toString().slice(0, 60) : '';
-  const text = (el.textContent || '').trim().slice(0, 60);
   const name = el.getAttribute('name') || '';
   const role = el.getAttribute('role') || '';
   const forAttr = el.getAttribute('for') || '';
@@ -278,7 +279,12 @@ function describeElement(el) {
   if (name) parts.push('name=' + name);
   if (role) parts.push('role=' + role);
   if (forAttr) parts.push('for=' + forAttr);
-  if (text) parts.push('text=' + text);
+  // テキストは小要素（button, a, label, span, td, th, option）のみ収集
+  const safeTextTags = ['button', 'a', 'label', 'span', 'td', 'th', 'option', 'li'];
+  if (safeTextTags.includes(tag)) {
+    const text = (el.textContent || '').trim().slice(0, 40);
+    if (text) parts.push('text=' + text);
+  }
   return parts.join(' | ');
 }
 
