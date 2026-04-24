@@ -419,17 +419,33 @@ function updateWatchEntries() {
   }
 }
 
+// セレクタにマッチする全要素を返す
+function findElementsAll(selector) {
+  if (!selector) return [];
+  if (isXPath(selector)) {
+    try {
+      const result = document.evaluate(selector, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+      const els = [];
+      for (let i = 0; i < result.snapshotLength; i++) els.push(result.snapshotItem(i));
+      return els;
+    } catch(e) { return []; }
+  } else {
+    try { return Array.from(document.querySelectorAll(selector)); } catch(e) { return []; }
+  }
+}
+
 document.addEventListener('click', (e) => {
   if (watchEntries.length === 0) return;
   for (const entry of watchEntries) {
-    const watchedEl = findElement(entry.selector);
-    if (!watchedEl) continue;
-    if (watchedEl === e.target || watchedEl.contains(e.target)) {
-      chrome.runtime.sendMessage({
-        type: 'watch-triggered',
-        steps: entry.steps,
-      });
-      break;
+    const watchedEls = findElementsAll(entry.selector);
+    for (const watchedEl of watchedEls) {
+      if (watchedEl === e.target || watchedEl.contains(e.target)) {
+        chrome.runtime.sendMessage({
+          type: 'watch-triggered',
+          steps: entry.steps,
+        });
+        return;
+      }
     }
   }
 }, true);
