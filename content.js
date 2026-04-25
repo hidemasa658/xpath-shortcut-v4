@@ -379,6 +379,20 @@ async function executeMacroFrom(allSteps, startIdx) {
         target.dispatchEvent(new KeyboardEvent('keypress', keyOpts));
       }
       target.dispatchEvent(new KeyboardEvent('keyup', keyOpts));
+      // 合成イベントではネイティブ動作が起きないため、手動で実行
+      if (keyName === 'Enter') {
+        const tTag = (target.tagName || '').toLowerCase();
+        if (tTag === 'textarea') {
+          // textarea: 改行挿入
+          document.execCommand('insertText', false, '\n');
+        } else if (tTag === 'input') {
+          // input: フォーム送信
+          const form = target.closest('form');
+          if (form) form.requestSubmit();
+        } else if (tTag === 'button' || tTag === 'a') {
+          target.click();
+        }
+      }
       continue;
     }
     // ランダム選択ステップ
