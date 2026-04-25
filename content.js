@@ -479,7 +479,25 @@ document.addEventListener('keydown', (e) => {
       ' | id=' + elId +
       ' | name=' + elName +
       ' | class=' + elClass;
-    // DOM状態は5秒に1回だけ送信（ログ量制限）
+    // Enter結果検証: 50ms後にvalueが変化したか確認
+    const target = e.target;
+    if (tag === 'textarea' && 'value' in target) {
+      const beforeLen = target.value.length;
+      const beforeSel = target.selectionStart;
+      setTimeout(() => {
+        const afterLen = target.value.length;
+        const afterSel = target.selectionStart;
+        const changed = afterLen !== beforeLen || afterSel !== beforeSel;
+        if (!changed) {
+          // Enter押したのに値が変わらなかった = 失敗
+          const now = Date.now();
+          const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(target) : '';
+          if (snapshot) lastDOMSnapshotTs = now;
+          reportError('enter-FAILED: ' + info + ' | valLen=' + beforeLen + ' | sel=' + beforeSel, 'key-debug', '', snapshot);
+        }
+      }, 50);
+    }
+    // 通常ログ（5秒に1回のみスナップショット付き）
     const now = Date.now();
     const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(e.target) : '';
     if (snapshot) lastDOMSnapshotTs = now;
