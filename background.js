@@ -151,18 +151,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     ]},
     { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
     { key: 'Alt+Z', xpath: 'copy:', name: 'テキストコピー', steps: [] },
-    { key: '', xpath: 'newtab:solamichi.jp', name: '新規タブ自動実行', steps: [
-      { xpath: '//button[normalize-space()="指導開始"]', delay: 1 },
-      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
-      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
-      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
-    ]},
-    { key: '', xpath: 'watch:', name: 'クリック時自動実行', steps: [
-      { xpath: '//button[normalize-space()="指導開始"]', delay: 1 },
-      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
-      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
-      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
-    ]},
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
   sendLog(defaults);
