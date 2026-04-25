@@ -213,8 +213,14 @@ function onKeyDown(e) {
     if (match.steps && match.steps.length > 0) {
       if (macroRunning) {
         macroCancelFlag = true;
-        // 中止完了を待ってから再実行
-        setTimeout(() => { runMacro(match); }, 100);
+        // 前のマクロ停止を確認してから再実行
+        const waitCancel = setInterval(() => {
+          if (!macroRunning) {
+            clearInterval(waitCancel);
+            runMacro(match);
+          }
+        }, 50);
+        setTimeout(() => clearInterval(waitCancel), 5000); // 安全策
         return;
       }
       runMacro(match);
@@ -320,6 +326,7 @@ async function runMacro(sc) {
 }
 
 async function waitForElement(xpath, maxWait) {
+  if (!xpath) return null;
   const start = Date.now();
   while (Date.now() - start < maxWait) {
     if (macroCancelFlag) return null;

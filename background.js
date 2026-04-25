@@ -115,7 +115,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     ]},
     { key: 'Alt+2', xpath: '//button[normalize-space()="全て選択"]', name: 'すべて選択', steps: [] },
     { key: 'Alt+3', xpath: '//button[normalize-space()="併用薬に転記"]', name: '併用薬に転記', steps: [
-      { xpath: '//a[contains(@class,"close_btn")]', delay: 0.5 },
+      { xpath: '//a[contains(@class,"close_btn")]', delay: 0 },
+      { xpath: 'key:Enter', delay: 0 },
     ]},
     { key: 'Alt+4', xpath: '//*[@id="basis-information"]/div[1]/button[3]', name: '患者情報編集', steps: [] },
     { key: 'Alt+5', xpath: '//button[normalize-space()="患者基礎情報へ反映"]', name: '患者基礎情報へ反映', steps: [
@@ -126,9 +127,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       { xpath: '//label[@for="medication-guidance-guidance-check-2"]', delay: 0 },
       { xpath: '//label[@for="medication-guidance-effect-content-check-4-0"]', delay: 0 },
       { xpath: '//label[@for="sent-matter-guidance-check"]', delay: 0 },
+      { xpath: '//label[@for="compare-prescription-check"]', delay: 0 },
     ]},
-    { key: 'Alt+S', xpath: '//label[@for="medication-guidance-guidance-check-1"]', name: '', steps: [] },
-    { key: 'Alt+D', xpath: '//label[@for="compare-prescription-check"]', name: '', steps: [] },
+    { key: 'Alt+S', xpath: '//label[@for="medication-guidance-guidance-check-1"]', name: '', steps: [
+      { xpath: '//label[@for="medication-guidance-guidance-check-3"]', delay: 0 },
+      { xpath: '//label[@for="medication-guidance-guidance-check-5"]', delay: 0 },
+      { xpath: '//label[@for="compare-prescription-check"]', delay: 0 },
+    ]},
     { key: 'Alt+F', xpath: '//label[@for="sent-matter-check"]', name: '', steps: [] },
     { key: 'Alt+G', xpath: 'tab:tico-run.kabob.io/counters/3151/EUZ95rvZojcYbSNjYBabZ82o', name: '', steps: [] },
     { key: 'Alt+B', xpath: '//button[normalize-space()="患者データの紐付け"]', name: '', steps: [] },
@@ -142,20 +147,18 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     { key: 'Alt+Y', xpath: '//button[normalize-space()="保存 F12"]', name: '保存', steps: [] },
     { key: 'Alt+V', xpath: 'tab:previous', name: '前のタブに戻る', steps: [] },
     { key: 'Alt+Q', xpath: '//button[normalize-space()="指導開始"]', name: '', steps: [
-      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
-      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
-      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
+      { xpath: '//button[normalize-space()="オン資情報"]', delay: 0 },
+      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0 },
+      { xpath: '//button[normalize-space()="表示"]', delay: 0 },
     ]},
-    { key: 'Alt+H', xpath: 'key:Enter', name: '', steps: [
-      { xpath: '', delay: 1 },
-    ]},
+    { key: 'Alt+H', xpath: 'key:Enter', name: '', steps: [] },
     { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
     { key: 'Alt+Z', xpath: 'copy:', name: 'テキストコピー', steps: [] },
     { key: '', xpath: 'watch://*[@id="__layout"]/div/div/div[2]/div/div[2]/div/div[2]/table/tbody', name: '患者クリック→自動実行', steps: [
-      { xpath: '//button[normalize-space()="指導開始"]', delay: 1 },
-      { xpath: '//button[normalize-space()="オン資情報"]', delay: 1 },
-      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0.5 },
-      { xpath: '//button[normalize-space()="表示"]', delay: 0.5 },
+      { xpath: '//button[normalize-space()="指導開始"]', delay: 0 },
+      { xpath: '//button[normalize-space()="オン資情報"]', delay: 0 },
+      { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0 },
+      { xpath: '//button[normalize-space()="表示"]', delay: 0 },
     ]},
   ];
   await chrome.storage.local.set({ shortcuts: defaults });
