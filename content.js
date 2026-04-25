@@ -135,6 +135,7 @@ function collectDOMSnapshot(target) {
 }
 
 let macroRunning = false;
+let macroCancelFlag = false;
 
 // ショートカット間タイマー
 let scTimer = { key: null, ts: 0, timeout: null };
@@ -208,9 +209,14 @@ function onKeyDown(e) {
       }
       return;
     }
-    // ステップがあれば連続実行
+    // ステップがあれば連続実行（実行中なら中止して再実行）
     if (match.steps && match.steps.length > 0) {
-      if (macroRunning) return;
+      if (macroRunning) {
+        macroCancelFlag = true;
+        // 中止完了を待ってから再実行
+        setTimeout(() => { runMacro(match); }, 100);
+        return;
+      }
       runMacro(match);
     } else {
       clickWithRetry(match.xpath, 3000);
@@ -306,6 +312,7 @@ async function clickWithRetry(xpath, maxWait) {
 }
 
 async function runMacro(sc) {
+  macroCancelFlag = false;
   macroRunning = true;
   const allSteps = [{ xpath: sc.xpath, delay: 0 }];
   sc.steps.forEach(s => allSteps.push(s));
@@ -315,6 +322,7 @@ async function runMacro(sc) {
 async function waitForElement(xpath, maxWait) {
   const start = Date.now();
   while (Date.now() - start < maxWait) {
+    if (macroCancelFlag) return null;
     const el = findElement(xpath);
     if (el) return el;
     await new Promise(r => setTimeout(r, 300));
@@ -325,10 +333,16 @@ async function waitForElement(xpath, maxWait) {
 async function executeMacroFrom(allSteps, startIdx) {
   macroRunning = true;
   for (let i = startIdx; i < allSteps.length; i++) {
+    if (macroCancelFlag) {
+      macroRunning = false;
+      await chrome.storage.local.remove('macroState');
+      return;
+    }
     const step = allSteps[i];
     // 待機
     if (step.delay > 0) {
       await new Promise(r => setTimeout(r, step.delay * 1000));
+      if (macroCancelFlag) { macroRunning = false; await chrome.storage.local.remove('macroState'); return; }
     }
     // 次ステップ位置を保存（遷移に備える）
     if (i + 1 < allSteps.length) {
