@@ -95,13 +95,13 @@ function reportError(message, context, xpath, extra) {
 }
 
 // DOM状態のスナップショット収集（診断用）
-function collectDOMSnapshot(target) {
+function collectDOMSnapshot(target, failedXpath) {
   const info = [];
   // ページURL
   info.push('url=' + location.pathname.slice(0, 80));
   // host要素の状態
   const host = document.getElementById('xpath-shortcut-host');
-  info.push('host=' + (host ? 'attached(next=' + (host.nextSibling ? host.nextSibling.nodeName : 'none') + ')' : 'detached'));
+  info.push('host=' + (host ? 'attached' : 'detached'));
   // body直下の要素一覧（モーダル検出用）
   const children = Array.from(document.body.children).map(el => {
     const tag = el.tagName.toLowerCase();
@@ -111,14 +111,13 @@ function collectDOMSnapshot(target) {
     return tag + id + cls + vis;
   }).slice(0, 20);
   info.push('body-children=' + children.join(','));
-  // 対象要素の周辺HTML
+  // 失敗xpathの周辺DOM構造を探索（タグ・id・classのみ、テキスト除外）
+  if (failedXpath) {
+    const nearby = collectNearbyDOM(failedXpath);
+    if (nearby) info.push('nearby=' + nearby);
+  }
+  // 対象要素の周辺HTML（Enter検知等で使用）
   if (target) {
-    // 親3階層のouterHTML（文字数制限付き）
-    let ctx = target;
-    for (let i = 0; i < 3 && ctx.parentElement; i++) ctx = ctx.parentElement;
-    const parentHTML = ctx.outerHTML.slice(0, 500);
-    info.push('context-html=' + parentHTML);
-    // textareaの場合、現在の値の長さとselectionStart
     if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
       info.push('value-len=' + (target.value || '').length);
       info.push('selStart=' + target.selectionStart);
@@ -132,6 +131,61 @@ function collectDOMSnapshot(target) {
     info.push('modals=' + modals.length + '(' + Array.from(modals).map(m => m.className.toString().split(' ')[0]).join(',') + ')');
   }
   return info.join(' | ');
+}
+
+// 失敗xpathの周辺DOM構造を収集（個人情報除外）
+function collectNearbyDOM(xpath) {
+  try {
+    // xpathからセレクタのヒントを抽出
+    const forMatch = xpath.match(/@for="([^"]+)"/);
+    const textMatch = xpath.match(/normalize-space\(\)="([^"]+)"/);
+    const idMatch = xpath.match(/@id="([^"]+)"/);
+
+    // label[@for="..."] の場合: 同種のlabel一覧を収集
+    if (forMatch) {
+      const labels = document.querySelectorAll('label[for]');
+      const list = Array.from(labels).slice(0, 30).map(l => {
+        const f = l.getAttribute('for') || '';
+        const vis = l.offsetHeight > 0 ? '' : '[h]';
+        return f + vis;
+      });
+      return 'labels[for]=' + list.join(',');
+    }
+    // button/要素のテキストマッチの場合: 同種要素のテキスト一覧
+    if (textMatch) {
+      const targetText = textMatch[1];
+      const tagMatch = xpath.match(/\/\/(button|td|a|label)/);
+      const tag = tagMatch ? tagMatch[1] : 'button';
+      const els = document.querySelectorAll(tag);
+      const safeTextTags = ['button', 'a', 'label', 'td', 'th'];
+      const list = Array.from(els).slice(0, 30).map(el => {
+        const t = el.tagName.toLowerCase();
+        const id = el.id ? '#' + el.id : '';
+        const cls = el.className ? '.' + el.className.toString().split(' ')[0] : '';
+        const text = safeTextTags.includes(t) ? (el.textContent || '').trim().slice(0, 20) : '';
+        const vis = el.offsetHeight > 0 ? '' : '[h]';
+        return t + id + cls + (text ? '(' + text + ')' : '') + vis;
+      });
+      return tag + 's=' + list.join(',');
+    }
+    // id指定の場合: その要素の子構造
+    if (idMatch) {
+      const el = document.getElementById(idMatch[1]);
+      if (el) {
+        const kids = Array.from(el.children).slice(0, 20).map(c => {
+          const t = c.tagName.toLowerCase();
+          const id = c.id ? '#' + c.id : '';
+          const cls = c.className ? '.' + c.className.toString().split(' ')[0] : '';
+          return t + id + cls;
+        });
+        return 'id(' + idMatch[1] + ').children=' + kids.join(',');
+      }
+      return 'id(' + idMatch[1] + ')=NOT_FOUND';
+    }
+    return '';
+  } catch(e) {
+    return 'nearby-error:' + e.message;
+  }
 }
 
 let macroRunning = false;
@@ -263,7 +317,7 @@ async function insertText(expr) {
   const xpath = expr.substring(pipeIdx + 1).trim();
   const lines = textPart.split(',').join('\n') + '\n';
   const el = await waitForElement(xpath, 3000);
-  if (!el) { reportError('要素が見つかりません', 'shortcut-click', xpath, collectDOMSnapshot(null)); return; }
+  if (!el) { reportError('要素が見つかりません', 'shortcut-click', xpath, collectDOMSnapshot(null, xpath)); return; }
   el.focus();
   // textarea / input
   if ('value' in el) {
@@ -336,7 +390,7 @@ async function clickWithRetry(xpath, maxWait) {
     found.click();
     if (shouldSendElementInfo(xpath)) reportError('element-found: ' + describeElement(found), 'element-info', xpath);
   } else {
-    reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath, collectDOMSnapshot(null));
+    reportError('要素が見つかりません | ' + scanIframes(), 'shortcut-click', xpath, collectDOMSnapshot(null, xpath));
   }
 }
 
@@ -442,7 +496,7 @@ async function executeMacroFrom(allSteps, startIdx) {
       for (const picked of picks) {
         const el = await waitForElement(picked, 5000);
         if (el) { el.click(); } else {
-          reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', picked, collectDOMSnapshot(null));
+          reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', picked, collectDOMSnapshot(null, picked));
         }
       }
       continue;
@@ -453,7 +507,7 @@ async function executeMacroFrom(allSteps, startIdx) {
       el.click();
       if (shouldSendElementInfo(step.xpath)) reportError('element-found: ' + describeElement(el), 'element-info', step.xpath);
     } else {
-      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath, collectDOMSnapshot(null));
+      reportError('マクロ: 要素が見つかりません (ステップ' + (i+1) + ') → スキップ | ' + scanIframes(), 'macro-step', step.xpath, collectDOMSnapshot(null, step.xpath));
       // 停止せずスキップして次のステップへ
       continue;
     }
