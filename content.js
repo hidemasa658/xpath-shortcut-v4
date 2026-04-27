@@ -481,10 +481,23 @@ document.addEventListener('click', (e) => {
     const watchedEls = findElementsAll(entry.selector);
     for (const watchedEl of watchedEls) {
       if (watchedEl === e.target || watchedEl.contains(e.target)) {
-        chrome.runtime.sendMessage({
-          type: 'watch-triggered',
-          steps: entry.steps,
-        });
+        const steps = entry.steps || [];
+        if (steps.length === 0) return;
+        // 最初のステップは現在のタブで実行、残りは新規タブで実行
+        const firstStep = steps[0];
+        const remainingSteps = steps.slice(1);
+        (async () => {
+          const el = await waitForElement(firstStep.xpath, 5000);
+          if (el) {
+            el.click();
+            if (remainingSteps.length > 0) {
+              chrome.runtime.sendMessage({
+                type: 'watch-triggered',
+                steps: remainingSteps,
+              });
+            }
+          }
+        })();
         return;
       }
     }
