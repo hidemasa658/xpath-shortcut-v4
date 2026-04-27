@@ -175,6 +175,29 @@ function onKeyDown(e) {
       chrome.runtime.sendMessage({ type: 'switch-tab', url });
       return;
     }
+    // キー送信（xpath が key: で始まる場合）
+    if (match.xpath && match.xpath.startsWith('key:')) {
+      const keyName = match.xpath.slice(4).trim();
+      const target = document.activeElement || document.body;
+      const keyOpts = { key: keyName, code: keyName, bubbles: true, cancelable: true };
+      target.dispatchEvent(new KeyboardEvent('keydown', keyOpts));
+      if (keyName === 'Enter') {
+        target.dispatchEvent(new KeyboardEvent('keypress', keyOpts));
+      }
+      target.dispatchEvent(new KeyboardEvent('keyup', keyOpts));
+      if (keyName === 'Enter') {
+        const tTag = (target.tagName || '').toLowerCase();
+        if (tTag === 'textarea') {
+          document.execCommand('insertText', false, '\n');
+        } else if (tTag === 'input') {
+          const form = target.closest('form');
+          if (form) form.requestSubmit();
+        } else if (tTag === 'button' || tTag === 'a') {
+          target.click();
+        }
+      }
+      return;
+    }
     // テキスト挿入（xpath が text: で始まる場合）
     // 形式: text:S,O,A,P|//xpath
     if (match.xpath && match.xpath.startsWith('text:')) {
