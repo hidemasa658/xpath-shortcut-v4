@@ -558,6 +558,24 @@ document.addEventListener('click', (e) => {
     const watchedEls = findElementsAll(entry.selector);
     for (const watchedEl of watchedEls) {
       if (watchedEl === e.target || watchedEl.contains(e.target)) {
+        // クリックされた要素の情報をログ送信（セレクタ調整用）
+        const clickedTag = e.target.tagName.toLowerCase();
+        const clickedId = e.target.id ? '#' + e.target.id : '';
+        const clickedCls = e.target.className ? '.' + e.target.className.toString().split(' ')[0] : '';
+        const matchedTag = watchedEl.tagName.toLowerCase();
+        const matchedId = watchedEl.id ? '#' + watchedEl.id : '';
+        const matchedCls = watchedEl.className ? '.' + watchedEl.className.toString().split(' ')[0] : '';
+        // 親構造（タグ・class のみ、3階層）
+        const ancestors = [];
+        let p = e.target;
+        for (let ai = 0; ai < 3 && p.parentElement; ai++) {
+          p = p.parentElement;
+          const pt = p.tagName.toLowerCase();
+          const pid = p.id ? '#' + p.id : '';
+          const pcls = p.className ? '.' + p.className.toString().split(' ')[0] : '';
+          ancestors.push(pt + pid + pcls);
+        }
+        reportError('watch-click: clicked=' + clickedTag + clickedId + clickedCls + ' matched=' + matchedTag + matchedId + matchedCls + ' ancestors=' + ancestors.join('>'), 'watch-debug', entry.selector);
         const steps = entry.steps || [];
         if (steps.length === 0) return;
         // 最初のステップは現在のタブで実行、残りは新規タブで実行

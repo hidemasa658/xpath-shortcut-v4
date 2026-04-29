@@ -154,7 +154,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     { key: 'Alt+H', xpath: 'key:Enter', name: '', steps: [] },
     { key: 'Alt+J', xpath: 'text:【S】,【O】,【A】,【P】|//*[@id="contents-textarea"]', name: 'SOAP挿入', steps: [] },
     { key: 'Alt+Z', xpath: 'copy:', name: 'テキストコピー', steps: [] },
-    { key: '', xpath: 'watch://*[@id="__layout"]/div/div/div[2]/div/div[2]/div/div[2]/table/tbody', name: '患者クリック→自動実行', steps: [
+    { key: '', xpath: 'watch://*[@id="__layout"]/div/div/div[2]/div/div[2]/div/div[2]/table/tbody/tr/td[position()<=2]', name: '患者クリック→自動実行', steps: [
       { xpath: '//button[normalize-space()="指導開始"]', delay: 0 },
       { xpath: '//button[normalize-space()="オン資情報"]', delay: 0 },
       { xpath: '//td[normalize-space()="薬剤情報"]', delay: 0 },
