@@ -802,7 +802,7 @@ function showHL(el) {
 function removeHL() { if (hlEl) { hlEl.remove(); hlEl = null; } }
 
 function onPMove(e) {
-  if (!picking && !copyPicking) return;
+  if (!picking && !copyPicking && !scanPicking) return;
   const host = document.getElementById('xpath-shortcut-host');
   if (host && (e.target === host || host.contains(e.target))) { removeHL(); return; }
   showHL(e.target);
@@ -818,7 +818,11 @@ function onPClick(e) {
   removeHL(); stopPicker();
   chrome.runtime.sendMessage({ type: 'xpath-picked', idx: idx, xpath: sel });
 }
-function onPKey(e) { if (picking && e.key === 'Escape') { removeHL(); stopPicker(); stopCopyPicker(); } }
+function onPKey(e) {
+  if (e.key === 'Escape' && (picking || copyPicking || scanPicking)) {
+    removeHL(); stopPicker(); stopCopyPicker(); stopScanPicker();
+  }
+}
 
 // コピーピッカー
 let copyPicking = false;
@@ -836,6 +840,8 @@ function onCopyClick(e) {
   }
 }
 function startCopyPicker() {
+  if (picking) { removeHL(); stopPicker(); }
+  if (scanPicking) { removeHL(); stopScanPicker(); }
   copyPicking = true;
   document.body.style.cursor = 'crosshair';
   document.addEventListener('mousemove', onPMove, true);
@@ -852,6 +858,8 @@ function stopCopyPicker() {
 }
 
 function startPicker(idx) {
+  if (copyPicking) { removeHL(); stopCopyPicker(); }
+  if (scanPicking) { removeHL(); stopScanPicker(); }
   picking = true; pickIdx = idx;
   document.body.style.cursor = 'crosshair';
   document.addEventListener('mousemove', onPMove, true);
@@ -869,6 +877,116 @@ function stopPicker() {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'start-picker') startPicker(msg.idx);
 });
+
+// ========== DOMスキャン（エリア選択 → 操作可能要素収集） ==========
+let scanPicking = false;
+
+function startScanPicker() {
+  if (picking) { removeHL(); stopPicker(); }
+  if (copyPicking) { removeHL(); stopCopyPicker(); }
+  scanPicking = true;
+  document.body.style.cursor = 'crosshair';
+  document.addEventListener('mousemove', onPMove, true);
+  document.addEventListener('click', onScanClick, true);
+  document.addEventListener('keydown', onPKey, true);
+}
+
+function stopScanPicker() {
+  if (!scanPicking) return;
+  scanPicking = false;
+  document.body.style.cursor = '';
+  document.removeEventListener('mousemove', onPMove, true);
+  document.removeEventListener('click', onScanClick, true);
+  document.removeEventListener('keydown', onPKey, true);
+}
+
+function onScanClick(e) {
+  if (!scanPicking) return;
+  const host = document.getElementById('xpath-shortcut-host');
+  if (host && (e.target === host || host.contains(e.target))) return;
+  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+  removeHL(); stopScanPicker();
+  // TextNode対策: Element Nodeに正規化
+  const container = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+  if (!container) return;
+  scanInteractiveElements(container);
+}
+
+function scanInteractiveElements(container) {
+  const interactiveSelector = 'input,select,textarea,button,a,[role="button"],[role="radio"],[role="checkbox"],[role="tab"],[role="menuitem"],[contenteditable="true"]';
+  const results = [];
+
+  // コンテナ自体が対象かチェック
+  if (container.matches && container.matches(interactiveSelector)) {
+    if (container.offsetWidth > 0 || container.offsetHeight > 0) {
+      results.push(describeInteractive(container));
+    }
+  }
+
+  // コンテナ内の操作可能要素（可視のみ）
+  for (const el of container.querySelectorAll(interactiveSelector)) {
+    if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+      results.push(describeInteractive(el));
+    }
+  }
+
+  // コンテナ内のiframe（同一オリジン）
+  for (const iframe of container.querySelectorAll('iframe')) {
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc) continue;
+      for (const el of doc.querySelectorAll(interactiveSelector)) {
+        if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+          results.push({ ...describeInteractive(el), context: 'iframe', iframeSrc: (iframe.src || '').slice(0, 80) });
+        }
+      }
+    } catch(e) {}
+  }
+
+  // コンソールに出力
+  const containerTag = container.tagName.toLowerCase();
+  const containerId = container.id ? '#' + container.id : '';
+  const containerCls = container.className ? '.' + container.className.toString().split(' ')[0] : '';
+  const containerLabel = containerTag + containerId + containerCls;
+
+  if (results.length === 0) {
+    console.log('%c[XPath Shortcut] 📸 ' + containerLabel + ' 内に操作可能要素なし (xpath: ' + genSelector(container) + ')', 'color:#999');
+    return;
+  }
+
+  console.group('%c[XPath Shortcut] 📸 ' + containerLabel + ' 内の操作可能要素 ' + results.length + '件', 'color:#1a73e8;font-weight:bold');
+  console.table(results.map(r => ({
+    tag: r.tag,
+    type: r.type || '',
+    id: r.id || '',
+    name: r.name || '',
+    class: r.class || '',
+    role: r.role || '',
+    ariaLabel: r.ariaLabel || '',
+    placeholder: r.placeholder || '',
+    xpath: r.xpath,
+    context: r.context || 'main',
+  })));
+  console.log('XPath一覧:');
+  results.forEach((r, i) => {
+    const label = r.tag + (r.type ? '[' + r.type + ']' : '') + (r.name ? ' name=' + r.name : '');
+    console.log(`  ${i+1}. ${r.xpath}  ← ${label}`);
+  });
+  console.groupEnd();
+}
+
+function describeInteractive(el) {
+  const tag = el.tagName.toLowerCase();
+  const result = { tag, xpath: genSelector(el) };
+  if (el.id) result.id = el.id;
+  if (el.className) result.class = el.className.toString().slice(0, 60);
+  if (el.getAttribute('name')) result.name = el.getAttribute('name');
+  if (el.getAttribute('type')) result.type = el.getAttribute('type');
+  if (el.getAttribute('role')) result.role = el.getAttribute('role');
+  if (el.getAttribute('aria-label')) result.ariaLabel = el.getAttribute('aria-label');
+  if (el.getAttribute('placeholder')) result.placeholder = el.getAttribute('placeholder');
+  return result;
+}
 
 // ========== フローティングバー（トップフレームのみ） ==========
 if (window === window.top) {
@@ -1059,6 +1177,13 @@ wrapper.innerHTML = `
     font-size: 11px; display: flex; align-items: center; justify-content: center;
   }
   .step-row .step-pick-btn:hover { background: #d2e3fc; }
+  .step-row .step-cap-btn {
+    flex-shrink: 0; width: 20px; height: 20px;
+    border: 1px solid #f57c00; border-radius: 3px;
+    background: none; color: #f57c00; cursor: pointer;
+    font-size: 11px; display: flex; align-items: center; justify-content: center;
+  }
+  .step-row .step-cap-btn:hover { background: #fff3e0; }
   .step-row .step-del-btn {
     flex-shrink: 0; width: 20px; height: 20px;
     border: 1px solid #e53935; border-radius: 3px;
@@ -1210,6 +1335,7 @@ function renderPanel() {
           <span class="delay-label">秒→</span>
           <input type="text" class="step-sel-inp" data-i="${i}" data-si="${si}" value="${ESC(st.xpath||'')}" placeholder="セレクタ">
           <button class="step-pick-btn" data-i="${i}" data-si="${si}">+</button>
+          <button class="step-cap-btn" data-i="${i}" data-si="${si}" title="DOM情報収集">📸</button>
           <button class="step-del-btn" data-i="${i}" data-si="${si}">×</button>
         </div>`;
       });
@@ -1343,6 +1469,13 @@ function renderPanel() {
       const encodedIdx = 1000 + i * 100 + si;
       chrome.runtime.sendMessage({ type: 'start-picker', idx: encodedIdx });
       toast('要素をクリック（Escでキャンセル）');
+    });
+  });
+
+  panelEl.querySelectorAll('.step-cap-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      startScanPicker();
+      toast('📸 エリアをクリック（Escでキャンセル）');
     });
   });
 
