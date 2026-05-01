@@ -963,6 +963,7 @@ function scanInteractiveElements(container) {
     if (r.role) parts.push('role=' + r.role);
     if (r.ariaLabel) parts.push('aria-label=' + r.ariaLabel);
     if (r.placeholder) parts.push('ph=' + r.placeholder);
+    if (r.text) parts.push('text=' + r.text);
     if (r.context === 'iframe') parts.push('[iframe]');
     return (i+1) + '. ' + r.xpath + ' ← ' + parts.join('|');
   });
@@ -979,6 +980,11 @@ function describeInteractive(el) {
   if (el.getAttribute('role')) result.role = el.getAttribute('role');
   if (el.getAttribute('aria-label')) result.ariaLabel = el.getAttribute('aria-label');
   if (el.getAttribute('placeholder')) result.placeholder = el.getAttribute('placeholder');
+  // テキスト抽出（value or textContent、50文字まで）
+  const val = (el.value || '').trim();
+  const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
+  const text = val || txt;
+  if (text) result.text = text.slice(0, 50);
   return result;
 }
 
