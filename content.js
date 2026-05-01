@@ -950,29 +950,23 @@ function scanInteractiveElements(container) {
   const containerLabel = containerTag + containerId + containerCls;
 
   if (results.length === 0) {
-    console.log('%c[XPath Shortcut] 📸 ' + containerLabel + ' 内に操作可能要素なし (xpath: ' + genSelector(container) + ')', 'color:#999');
+    reportError('📸 ' + containerLabel + ' 内に操作可能要素なし (xpath: ' + genSelector(container) + ')', 'dom-scan', '');
     return;
   }
 
-  console.group('%c[XPath Shortcut] 📸 ' + containerLabel + ' 内の操作可能要素 ' + results.length + '件', 'color:#1a73e8;font-weight:bold');
-  console.table(results.map(r => ({
-    tag: r.tag,
-    type: r.type || '',
-    id: r.id || '',
-    name: r.name || '',
-    class: r.class || '',
-    role: r.role || '',
-    ariaLabel: r.ariaLabel || '',
-    placeholder: r.placeholder || '',
-    xpath: r.xpath,
-    context: r.context || 'main',
-  })));
-  console.log('XPath一覧:');
-  results.forEach((r, i) => {
-    const label = r.tag + (r.type ? '[' + r.type + ']' : '') + (r.name ? ' name=' + r.name : '');
-    console.log(`  ${i+1}. ${r.xpath}  ← ${label}`);
+  // サーバーに送信
+  const lines = results.map((r, i) => {
+    const parts = [r.tag];
+    if (r.type) parts.push('type=' + r.type);
+    if (r.id) parts.push('id=' + r.id);
+    if (r.name) parts.push('name=' + r.name);
+    if (r.role) parts.push('role=' + r.role);
+    if (r.ariaLabel) parts.push('aria-label=' + r.ariaLabel);
+    if (r.placeholder) parts.push('ph=' + r.placeholder);
+    if (r.context === 'iframe') parts.push('[iframe]');
+    return (i+1) + '. ' + r.xpath + ' ← ' + parts.join('|');
   });
-  console.groupEnd();
+  reportError('📸 ' + containerLabel + ' ' + results.length + '件:\n' + lines.join('\n'), 'dom-scan', genSelector(container));
 }
 
 function describeInteractive(el) {
