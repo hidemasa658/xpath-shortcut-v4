@@ -924,9 +924,43 @@ function scanInteractiveElements(container) {
   }
 
   // コンテナ内の操作可能要素（可視のみ）
+  const seen = new Set();
   for (const el of container.querySelectorAll(interactiveSelector)) {
     if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+      seen.add(el);
       results.push(describeInteractive(el));
+    }
+  }
+
+  // cursor:pointer を持つカスタムUI要素（ラジオボタン・チェックボックス等）
+  for (const el of container.querySelectorAll('*')) {
+    if (seen.has(el)) continue;
+    if (!(el.offsetWidth > 0 || el.offsetHeight > 0)) continue;
+    // 子要素が多いコンテナは除外（レイアウト要素）
+    if (el.children.length > 5) continue;
+    // script/style/svg内部は除外
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'svg' || tag === 'path') continue;
+    try {
+      if (getComputedStyle(el).cursor !== 'pointer') continue;
+    } catch(e) { continue; }
+    // 親がすでにseen（input等のlabel wrapper）なら除外
+    let skip = false;
+    let p = el.parentElement;
+    for (let d = 0; d < 2 && p; d++, p = p.parentElement) {
+      if (seen.has(p)) { skip = true; break; }
+    }
+    // 子にすでにseenがある要素（ボタン等を包むdiv）なら除外
+    if (!skip) {
+      for (const child of el.querySelectorAll(interactiveSelector)) {
+        if (seen.has(child)) { skip = true; break; }
+      }
+    }
+    if (!skip) {
+      seen.add(el);
+      const desc = describeInteractive(el);
+      desc.custom = true;
+      results.push(desc);
     }
   }
 
@@ -964,6 +998,7 @@ function scanInteractiveElements(container) {
     if (r.ariaLabel) parts.push('aria-label=' + r.ariaLabel);
     if (r.placeholder) parts.push('ph=' + r.placeholder);
     if (r.text) parts.push('text=' + r.text);
+    if (r.custom) parts.push('[custom]');
     if (r.context === 'iframe') parts.push('[iframe]');
     return (i+1) + '. ' + r.xpath + ' ← ' + parts.join('|');
   });
