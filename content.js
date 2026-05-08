@@ -1023,7 +1023,6 @@ function describeInteractive(el) {
 // ========== UI構造ツリースキャン ==========
 function scanUITree(container) {
   const lines = [];
-  const MAX = 150;
 
   function nodeLabel(el) {
     const tag = el.tagName.toLowerCase();
@@ -1066,7 +1065,6 @@ function scanUITree(container) {
   }
 
   function walk(el, depth) {
-    if (lines.length >= MAX) return;
     const tag = el.tagName.toLowerCase();
     if (['script','style','noscript'].includes(tag)) return;
     if (!(el.offsetWidth > 0 || el.offsetHeight > 0)) return;
