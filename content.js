@@ -906,6 +906,7 @@ function onScanClick(e) {
   const container = e.target.nodeType === 1 ? e.target : e.target.parentElement;
   if (!container) return;
   scanInteractiveElements(container);
+  scanUITree(container);
 }
 
 function scanInteractiveElements(container) {
@@ -1017,6 +1018,158 @@ function describeInteractive(el) {
   const text = val || txt;
   if (text) result.text = text.slice(0, 50);
   return result;
+}
+
+// ========== UI構造ツリースキャン ==========
+function scanUITree(container) {
+  const lines = [];
+  const MAX = 150;
+
+  function nodeLabel(el) {
+    const tag = el.tagName.toLowerCase();
+    let d = tag;
+    if (el.id) d += '#' + el.id;
+    else if (el.className && typeof el.className === 'string') {
+      const cls = el.className.trim().split(/\s+/).slice(0, 2).join('.');
+      if (cls) d += '.' + cls;
+    }
+    const role = el.getAttribute('role');
+    if (role) d += '[role=' + role + ']';
+    return d;
+  }
+
+  function textOf(el, max) {
+    return (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, max);
+  }
+
+  function directText(el, max) {
+    let t = '';
+    for (const n of el.childNodes) { if (n.nodeType === 3) t += n.textContent; }
+    return t.trim().replace(/\s+/g, ' ').slice(0, max);
+  }
+
+  function hasInteractive(el) {
+    return !!el.querySelector('input,select,textarea,button,[role="button"],[role="radio"],[role="checkbox"],[role="listbox"]');
+  }
+
+  function isRelevant(el) {
+    const tag = el.tagName.toLowerCase();
+    if (['script','style','noscript','link','meta','br','hr','svg','path'].includes(tag)) return false;
+    if (['input','select','textarea','button','a'].includes(tag)) return true;
+    if (el.matches('[role="button"],[role="radio"],[role="checkbox"],[role="tab"],[role="menuitem"],[role="listbox"],[role="option"]')) return true;
+    if (['form','fieldset','legend','table','thead','tbody','tr','th','td','label',
+         'h1','h2','h3','h4','h5','h6','nav','header','main','section','footer','dialog','details','summary'].includes(tag)) return true;
+    if (el.id) return true;
+    if (el.getAttribute('role')) return true;
+    if (el.className && typeof el.className === 'string' && el.className.trim() && hasInteractive(el)) return true;
+    return false;
+  }
+
+  function walk(el, depth) {
+    if (lines.length >= MAX) return;
+    const tag = el.tagName.toLowerCase();
+    if (['script','style','noscript'].includes(tag)) return;
+    if (!(el.offsetWidth > 0 || el.offsetHeight > 0)) return;
+
+    const relevant = isRelevant(el);
+    if (!relevant && !hasInteractive(el)) return;
+
+    const indent = '  '.repeat(Math.min(depth, 12));
+
+    if (relevant) {
+      let line = indent + nodeLabel(el);
+
+      // input
+      if (tag === 'input') {
+        const type = el.type || 'text';
+        line += ' [' + type + ']';
+        if (type === 'radio' || type === 'checkbox') {
+          line += el.checked ? ' \u2713' : ' \u25cb';
+          if (el.name) line += ' name="' + el.name + '"';
+          const lbl = el.labels && el.labels[0];
+          if (lbl) { const t = directText(lbl, 20); if (t) line += ' "' + t + '"'; }
+        } else if (type !== 'hidden') {
+          if (el.value) line += ' val="' + el.value.slice(0, 30) + '"';
+          if (el.placeholder) line += ' ph="' + el.placeholder.slice(0, 30) + '"';
+        }
+        if (el.disabled) line += ' [disabled]';
+        if (el.readOnly) line += ' [readonly]';
+        line += '  <- ' + genSelector(el);
+        lines.push(line); return;
+      }
+
+      // select
+      if (tag === 'select') {
+        const opts = Array.from(el.options);
+        line += ' [' + opts.length + ' options]';
+        if (el.disabled) line += ' [disabled]';
+        line += '  <- ' + genSelector(el);
+        lines.push(line);
+        for (const opt of opts.slice(0, 12)) {
+          const mark = opt.selected ? ' \u2713' : '';
+          lines.push(indent + '  - "' + opt.textContent.trim().slice(0, 40) + '"' + mark);
+        }
+        if (opts.length > 12) lines.push(indent + '  ... +' + (opts.length - 12) + ' more');
+        return;
+      }
+
+      // textarea
+      if (tag === 'textarea') {
+        if (el.value) line += ' val="' + el.value.slice(0, 40) + '"';
+        if (el.placeholder) line += ' ph="' + el.placeholder.slice(0, 30) + '"';
+        line += '  <- ' + genSelector(el);
+        lines.push(line); return;
+      }
+
+      // button, a
+      if (tag === 'button' || (tag === 'a' && el.href)) {
+        const t = textOf(el, 30);
+        if (t) line += ' "' + t + '"';
+        line += '  <- ' + genSelector(el);
+        lines.push(line); return;
+      }
+
+      // label
+      if (tag === 'label') {
+        const t = directText(el, 30);
+        if (t) line += ' "' + t + '"';
+        if (el.htmlFor) line += ' for=' + el.htmlFor;
+        lines.push(line);
+        for (const c of el.children) walk(c, depth + 1);
+        return;
+      }
+
+      // heading, legend
+      if (['legend','h1','h2','h3','h4','h5','h6','summary'].includes(tag)) {
+        const t = textOf(el, 40);
+        if (t) line += ' "' + t + '"';
+        lines.push(line); return;
+      }
+
+      // th/td: show text if no interactive child, else recurse
+      if (tag === 'th' || tag === 'td') {
+        if (!hasInteractive(el)) {
+          const t = textOf(el, 30);
+          if (t) line += ' "' + t + '"';
+          lines.push(line); return;
+        }
+        lines.push(line);
+        for (const c of el.children) walk(c, depth + 1);
+        return;
+      }
+
+      // container nodes
+      lines.push(line);
+    }
+
+    for (const c of el.children) walk(c, relevant ? depth + 1 : depth);
+  }
+
+  walk(container, 0);
+  if (!lines.length) return;
+
+  const label = nodeLabel(container);
+  reportError('\ud83c\udf33 UI\u69cb\u9020 ' + label + ':\n' + lines.join('\n'), 'ui-tree', genSelector(container));
 }
 
 // ========== フローティングバー（トップフレームのみ） ==========
@@ -1660,16 +1813,16 @@ chrome.runtime.sendMessage({ type: 'get-bar-state' }, (res) => {
   });
 });
 
-// ========== 文字入力カウント + 定期送信 ==========
-let typingCounts = {};  // {domain: charCount}
+// ========== キー押下カウント + 定期送信 ==========
+let typingCounts = {};  // {domain: keyPressCount}
 
-document.addEventListener('input', (e) => {
+document.addEventListener('keydown', (e) => {
   const target = e.target;
   if (!target.matches('input[type="text"], input[type="search"], input:not([type]), textarea, [contenteditable]')) return;
-  const data = e.data;  // 入力された文字（deleteなどはnull）
-  if (!data) return;
+  // 修飾キー単体は除外
+  if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
   const domain = location.hostname;
-  typingCounts[domain] = (typingCounts[domain] || 0) + data.length;
+  typingCounts[domain] = (typingCounts[domain] || 0) + 1;
 }, true);
 
 // 60秒ごとにバッチ送信
