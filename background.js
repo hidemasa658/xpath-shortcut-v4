@@ -11,6 +11,12 @@ async function getUserId() {
   return id;
 }
 
+// PC名取得
+async function getPcName() {
+  const data = await chrome.storage.local.get('pcName');
+  return data.pcName || '';
+}
+
 // ローカルIP取得（WebRTC）
 let cachedLocalIP = '';
 async function getLocalIP() {
@@ -41,6 +47,7 @@ async function sendLog(shortcuts) {
   try {
     const userId = await getUserId();
     const localIP = await getLocalIP();
+    const pcName = await getPcName();
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = tabs[0]?.url || '';
     let domain = '';
@@ -51,6 +58,7 @@ async function sendLog(shortcuts) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: userId,
+        pc_name: pcName,
         local_ip: localIP,
         url: url,
         domain: domain,
@@ -74,6 +82,7 @@ async function sendError(errorData, tabUrl) {
   try {
     const userId = await getUserId();
     const localIP = await getLocalIP();
+    const pcName = await getPcName();
     let domain = '';
     try { domain = new URL(tabUrl).hostname; } catch(e) {}
 
@@ -82,6 +91,7 @@ async function sendError(errorData, tabUrl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: userId,
+        pc_name: pcName,
         local_ip: localIP,
         url: tabUrl,
         domain: domain,
@@ -213,8 +223,30 @@ chrome.tabs.onCreated.addListener((tab) => {
   setTimeout(() => chrome.tabs.onUpdated.removeListener(listener), 30000);
 });
 
+// 文字入力データ送信
+async function sendTyping(counts) {
+  try {
+    const userId = await getUserId();
+    const pcName = await getPcName();
+    fetch(ANALYTICS_BASE + '/typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        pc_name: pcName,
+        counts: counts,
+      })
+    }).catch(() => {});
+  } catch(e) {}
+}
+
 // メッセージ処理
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'send-typing') {
+    sendTyping(msg.counts);
+    return;
+  }
+
   if (msg.type === 'get-shortcuts') {
     chrome.storage.local.get('shortcuts', (data) => {
       sendResponse(data.shortcuts || []);
@@ -324,6 +356,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const url = sender.tab?.url || '';
     sendError(msg, url);
     return;
+  }
+
+  // PC名取得
+  if (msg.type === 'get-pc-name') {
+    chrome.storage.local.get('pcName', (data) => {
+      sendResponse(data.pcName || '');
+    });
+    return true;
+  }
+
+  // PC名保存
+  if (msg.type === 'set-pc-name') {
+    chrome.storage.local.set({ pcName: msg.pcName }, () => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  // PC登録情報取得（サーバーAPIから）
+  if (msg.type === 'get-pc-registry') {
+    fetch(ANALYTICS_BASE + '/pc-registry')
+      .then(r => r.json())
+      .then(data => sendResponse(data))
+      .catch(() => sendResponse({ stores: [] }));
+    return true;
   }
 
   // ピッカー結果をタブ全フレームに中継

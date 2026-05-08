@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XPath Shortcut 操作ガイド</title>
+<style>
+  :root{--primary:#0B2545;--accent:#1C7293;--accent-light:#E8F4F8;--bg:#F8FAFB;--white:#FFF;--text:#1F2937;--muted:#6B7280;--border:#E5E7EB;--green:#059669;--amber:#D97706;--red:#DC2626;--purple:#7C3AED;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:14px;}
+  body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;color:var(--text);background:var(--bg);line-height:1.7;}
+
+  .page{max-width:820px;margin:0 auto;padding:32px 24px;}
+
+  /* ヘッダー */
+  .hero{background:var(--primary);color:#fff;padding:36px 32px;border-radius:12px;margin-bottom:32px;position:relative;overflow:hidden;}
+  .hero::after{content:"⌨";position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:72px;opacity:.12;}
+  .hero h1{font-size:24px;font-weight:800;margin-bottom:6px;}
+  .hero p{font-size:13px;color:#B0C4D8;line-height:1.6;}
+  .hero .ver{display:inline-block;background:var(--accent);color:#fff;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;margin-bottom:10px;}
+
+  /* 目次 */
+  .toc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:32px;}
+  .toc h2{font-size:14px;color:var(--muted);font-weight:600;margin-bottom:10px;letter-spacing:.05em;}
+  .toc ol{padding-left:20px;}
+  .toc li{margin-bottom:4px;font-size:13px;}
+  .toc a{color:var(--accent);text-decoration:none;font-weight:500;}
+  .toc a:hover{text-decoration:underline;}
+
+  /* セクション */
+  .section{margin-bottom:28px;}
+  .section-title{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--accent);}
+  .section-title .num{background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+  .section-title h2{font-size:17px;font-weight:700;color:var(--primary);}
+
+  /* カード */
+  .card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin-bottom:10px;}
+  .card h3{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+  .card p,.card li{font-size:13px;color:var(--text);}
+  .card ul{padding-left:18px;margin-top:4px;}
+  .card li{margin-bottom:3px;}
+
+  /* キーバッジ */
+  .key{display:inline-block;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;padding:1px 7px;font-size:12px;font-family:"JetBrains Mono",monospace;font-weight:600;color:var(--primary);white-space:nowrap;}
+
+  /* テーブル */
+  .tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;}
+  .tbl th{background:var(--accent-light);text-align:left;padding:8px 12px;font-weight:600;color:var(--primary);border-bottom:1px solid var(--border);font-size:12px;}
+  .tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl code{background:#F3F4F6;padding:1px 5px;border-radius:3px;font-size:12px;font-family:monospace;}
+
+  /* ステップ図 */
+  .steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;}
+  .step-box{background:var(--accent-light);border:1px solid #B5D8E8;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--accent);text-align:center;}
+  .step-arrow{color:var(--muted);font-size:16px;}
+
+  /* 注意 */
+  .note{background:#FEF3C7;border-left:4px solid var(--amber);padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;margin:10px 0;}
+  .note b{color:var(--amber);}
+  .tip{background:#ECFDF5;border-left:4px solid var(--green);padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;margin:10px 0;}
+  .tip b{color:var(--green);}
+
+  /* 図解 */
+  .diagram{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px;margin:10px 0;text-align:center;}
+  .diagram .flow{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;}
+  .diagram .box{background:var(--primary);color:#fff;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;}
+  .diagram .box.light{background:var(--accent-light);color:var(--accent);border:1px solid #B5D8E8;}
+  .diagram .arrow{color:var(--muted);font-size:18px;}
+
+  /* 印刷対応 */
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .page{padding:0;}
+    .hero{break-inside:avoid;}
+    .section{break-inside:avoid;}
+    .card{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="hero">
+  <div class="ver">v4</div>
+  <h1>XPath Shortcut 操作ガイド</h1>
+  <p>薬局業務システムの操作をキーボードショートカットで効率化する Chrome 拡張機能です。<br>ボタンのクリック・画面遷移・テキスト入力を自動化し、日々の繰り返し作業を削減します。</p>
+</div>
+
+<!-- 目次 -->
+<div class="toc">
+  <h2>もくじ</h2>
+  <ol>
+    <li><a href="#s1">初回セットアップ（PC名の登録）</a></li>
+    <li><a href="#s2">基本の使い方（ショートカットキー）</a></li>
+    <li><a href="#s3">フローティングバーの操作</a></li>
+    <li><a href="#s4">ショートカットの編集・追加</a></li>
+    <li><a href="#s5">ピッカー（画面から要素を選択）</a></li>
+    <li><a href="#s6">マクロ（連続ステップ）</a></li>
+    <li><a href="#s7">便利な特殊機能</a></li>
+    <li><a href="#s8">自動実行（watch / newtab）</a></li>
+    <li><a href="#s9">おすすめキー・避けるべきキー</a></li>
+    <li><a href="#s10">困ったときは</a></li>
+  </ol>
+</div>
+
+<!-- 1. 初回セットアップ -->
+<div class="section" id="s1">
+  <div class="section-title"><div class="num">1</div><h2>初回セットアップ（PC名の登録）</h2></div>
+  <div class="card">
+    <h3>PC名を登録する</h3>
+    <p>拡張機能を初めてインストールすると、画面に登録オーバーレイが表示されます。</p>
+    <div class="steps">
+      <div class="step-box">店舗を選択</div>
+      <div class="step-arrow">→</div>
+      <div class="step-box">号機番号を選択</div>
+      <div class="step-arrow">→</div>
+      <div class="step-box">登録完了</div>
+    </div>
+    <p>例：「本店」→「2号機」を選ぶと <b>本店-2号機</b> として登録されます。</p>
+    <div class="tip"><b>ポイント:</b> 登録は1回だけでOKです。拡張機能を削除しない限り設定は保持されます。</div>
+  </div>
+</div>
+
+<!-- 2. 基本の使い方 -->
+<div class="section" id="s2">
+  <div class="section-title"><div class="num">2</div><h2>基本の使い方（ショートカットキー）</h2></div>
+  <div class="card">
+    <h3>ショートカットでボタンをクリック</h3>
+    <p>キーボードのショートカットを押すだけで、画面上のボタンやリンクを自動クリックできます。</p>
+    <div class="diagram">
+      <div class="flow">
+        <div class="box">キーを押す<br><span style="font-size:11px">例: <span class="key" style="color:#fff;border-color:rgba(255,255,255,.3)">Alt+1</span></span></div>
+        <div class="arrow">→</div>
+        <div class="box light">画面上のボタンを<br>自動でクリック</div>
+        <div class="arrow">→</div>
+        <div class="box light">連続ステップも<br>自動で進む</div>
+      </div>
+    </div>
+    <p>要素が見つからない場合は最大3秒間リトライするので、画面の読み込みが遅くても安心です。</p>
+  </div>
+  <div class="card">
+    <h3>デフォルトで登録済みのショートカット一覧</h3>
+    <table class="tbl">
+      <tr><th>キー</th><th>動作</th></tr>
+      <tr><td><span class="key">Alt+1</span></td><td>◇確認：オン資情報 → 薬剤情報 → 表示</td></tr>
+      <tr><td><span class="key">Alt+2</span></td><td>すべて選択</td></tr>
+      <tr><td><span class="key">Alt+3</span></td><td>併用薬に転記 → 閉じる → Enter</td></tr>
+      <tr><td><span class="key">Alt+4</span></td><td>患者情報編集</td></tr>
+      <tr><td><span class="key">Alt+5</span></td><td>患者基礎情報へ反映 → 薬歴入力 → 指導ナビ</td></tr>
+      <tr><td><span class="key">Alt+A</span></td><td>一括チェック（指導内容・効能・伝達事項・処方比較を連続チェック）</td></tr>
+      <tr><td><span class="key">Alt+S</span></td><td>チェック（指導項目1,3,5 + 処方比較）</td></tr>
+      <tr><td><span class="key">Alt+F</span></td><td>伝達事項チェック</td></tr>
+      <tr><td><span class="key">Alt+G</span></td><td>カウンターページ（tico-run）にタブ切り替え</td></tr>
+      <tr><td><span class="key">Alt+B</span></td><td>患者データの紐付け</td></tr>
+      <tr><td><span class="key">Alt+R</span></td><td>問診情報すべて選択 → 患者基礎情報へ反映 → 薬歴入力 → 指導ナビ</td></tr>
+      <tr><td><span class="key">Alt+E</span></td><td>閉じる（モーダルを閉じる）</td></tr>
+      <tr><td><span class="key">Alt+T</span></td><td>薬歴へ反映</td></tr>
+      <tr><td><span class="key">Alt+Y</span></td><td>保存 F12</td></tr>
+      <tr><td><span class="key">Alt+V</span></td><td>前のタブに戻る</td></tr>
+      <tr><td><span class="key">Alt+Q</span></td><td>指導開始 → オン資情報 → 薬剤情報 → 表示</td></tr>
+      <tr><td><span class="key">Alt+H</span></td><td>Enterキー送信</td></tr>
+      <tr><td><span class="key">Alt+J</span></td><td>SOAP挿入（【S】【O】【A】【P】をテキストエリアに挿入）</td></tr>
+      <tr><td><span class="key">Alt+Z</span></td><td>テキストコピー（画面上の要素を選んでコピー）</td></tr>
+      <tr><td style="font-size:11px;color:var(--muted)">（自動）</td><td>患者クリック → 自動実行（指導開始 → オン資情報 → 薬剤情報 → 表示）</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- 3. フローティングバー -->
+<div class="section" id="s3">
+  <div class="section-title"><div class="num">3</div><h2>フローティングバーの操作</h2></div>
+  <div class="card">
+    <h3>バーの見方</h3>
+    <p>画面の左上に表示される小さなバーが、登録済みショートカットの一覧です。</p>
+    <ul>
+      <li>各ショートカットのキーとメモ名がバッジで並んでいます</li>
+      <li><b>ドラッグ移動</b>：バーを掴んで好きな位置に移動できます（位置は記憶されます）</li>
+      <li><b>表示/非表示</b>：<span class="key">Alt+0</span> またはツールバーのアイコンをクリック</li>
+    </ul>
+    <div class="note"><b>注意:</b> テキスト入力中はバーが自動的に非表示になります（入力への干渉を防ぐため）。入力欄からフォーカスが外れると自動で戻ります。</div>
+  </div>
+</div>
+
+<!-- 4. 編集・追加 -->
+<div class="section" id="s4">
+  <div class="section-title"><div class="num">4</div><h2>ショートカットの編集・追加</h2></div>
+  <div class="card">
+    <h3>設定パネルを開く</h3>
+    <p>フローティングバー右端の <b>⚙ 歯車アイコン</b> をクリックすると設定パネルが展開されます。</p>
+  </div>
+  <div class="card">
+    <h3>ショートカットの編集</h3>
+    <table class="tbl">
+      <tr><th>項目</th><th>説明</th></tr>
+      <tr><td><b>メモ</b></td><td>ショートカットの名前。バーに表示されます</td></tr>
+      <tr><td><b>キー</b></td><td>入力欄をクリックしてからキーを押すと自動入力されます</td></tr>
+      <tr><td><b>セレクタ</b></td><td>クリック対象の要素を指定します（XPath または CSS）。手入力またはピッカーで設定</td></tr>
+      <tr><td><b>ステップ</b></td><td>「+ステップ」で連続クリックする要素を追加。各ステップに遅延も設定可能</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>新しいショートカットを追加する</h3>
+    <p>パネル下部の「<b>＋ ショートカット追加</b>」ボタンで新しい行を追加し、キー・セレクタ・メモを設定してください。</p>
+    <p>不要なショートカットは「<b>✕</b>」ボタンで削除できます。</p>
+  </div>
+</div>
+
+<!-- 5. ピッカー -->
+<div class="section" id="s5">
+  <div class="section-title"><div class="num">5</div><h2>ピッカー（画面から要素を選択）</h2></div>
+  <div class="card">
+    <h3>XPathを自動生成する</h3>
+    <p>セレクタを手入力する必要はありません。画面上の要素をクリックするだけで自動設定できます。</p>
+    <div class="steps">
+      <div class="step-box">セレクタ欄の<br><b>＋</b> をクリック</div>
+      <div class="step-arrow">→</div>
+      <div class="step-box">カーソルが十字に変化<br>対象にカーソルを合わせる</div>
+      <div class="step-arrow">→</div>
+      <div class="step-box">クリックで<br>XPath自動設定</div>
+    </div>
+    <ul>
+      <li>要素にカーソルを合わせると<b>青いハイライト</b>で確認できます</li>
+      <li><span class="key">Esc</span> でキャンセル</li>
+      <li>iframe内の要素も選択可能です</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 6. マクロ -->
+<div class="section" id="s6">
+  <div class="section-title"><div class="num">6</div><h2>マクロ（連続ステップ）</h2></div>
+  <div class="card">
+    <h3>複数操作を1キーで実行</h3>
+    <p>1つのショートカットに複数のステップを設定すると、キー1回で連続操作を自動実行できます。</p>
+    <div class="diagram">
+      <div class="flow">
+        <div class="box">Alt+1 を押す</div>
+        <div class="arrow">→</div>
+        <div class="box light">① オン資情報<br>クリック</div>
+        <div class="arrow">→</div>
+        <div class="box light">② 薬剤情報<br>クリック</div>
+        <div class="arrow">→</div>
+        <div class="box light">③ 表示<br>クリック</div>
+      </div>
+    </div>
+    <ul>
+      <li>各ステップに<b>遅延（待ち時間）</b>を設定可能（画面の読み込みを待つ場合）</li>
+      <li><b>ページ遷移をまたいでも継続</b>：画面が切り替わった後も次のステップを自動実行します</li>
+      <li>要素が見つからない場合は最大5秒待って、それでもなければスキップして次へ進みます</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 7. 特殊機能 -->
+<div class="section" id="s7">
+  <div class="section-title"><div class="num">7</div><h2>便利な特殊機能</h2></div>
+  <div class="card">
+    <h3>セレクタの特殊プレフィックス</h3>
+    <p>セレクタ欄に以下のプレフィックスを書くと、クリック以外の動作ができます。</p>
+    <table class="tbl">
+      <tr><th>書き方</th><th>動作</th><th>使用例</th></tr>
+      <tr>
+        <td><code>tab:URL</code></td>
+        <td>URLに一致するタブに切り替え</td>
+        <td><code>tab:tico-run.kabob.io</code></td>
+      </tr>
+      <tr>
+        <td><code>tab:previous</code></td>
+        <td>直前のタブに戻る</td>
+        <td><code>tab:previous</code></td>
+      </tr>
+      <tr>
+        <td><code>key:Enter</code></td>
+        <td>Enterキーを送信</td>
+        <td><code>key:Enter</code> / <code>key:Tab</code></td>
+      </tr>
+      <tr>
+        <td><code>text:文字列|XPath</code></td>
+        <td>指定要素にテキスト挿入</td>
+        <td><code>text:【S】,【O】,【A】,【P】|//textarea</code></td>
+      </tr>
+      <tr>
+        <td><code>copy:</code></td>
+        <td>画面上の要素のテキストをコピー</td>
+        <td><code>copy:</code>（ピッカーが起動）</td>
+      </tr>
+      <tr>
+        <td><code>random:N:セレクタ群</code></td>
+        <td>N個をランダムにクリック</td>
+        <td><code>random:2:セレクタ1|セレクタ2|セレクタ3</code></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- 8. 自動実行 -->
+<div class="section" id="s8">
+  <div class="section-title"><div class="num">8</div><h2>自動実行（watch / newtab）</h2></div>
+  <div class="card">
+    <h3>キーを押さずに自動でマクロを実行</h3>
+    <table class="tbl">
+      <tr><th>書き方</th><th>動作</th></tr>
+      <tr>
+        <td><code>watch:XPath</code></td>
+        <td>指定した要素がクリックされたとき、後続ステップを自動実行。<br>例：患者名をクリック → 指導開始 → オン資情報… を自動で連続実行</td>
+      </tr>
+      <tr>
+        <td><code>newtab:ドメイン</code></td>
+        <td>指定ドメインの新しいタブが開いたとき、後続ステップを自動実行</td>
+      </tr>
+    </table>
+    <div class="tip"><b>ポイント:</b> watchやnewtabはキー欄を空にしてください。キーではなく、イベント（クリックやタブ作成）をトリガーにして動きます。</div>
+  </div>
+</div>
+
+<!-- 9. おすすめキー -->
+<div class="section" id="s9">
+  <div class="section-title"><div class="num">9</div><h2>おすすめキー・避けるべきキー</h2></div>
+  <div class="card">
+    <h3>おすすめ</h3>
+    <p>
+      <span class="key">Alt+1</span>〜<span class="key">Alt+9</span>
+      <span class="key">Alt+A</span>〜<span class="key">Alt+Z</span>
+      <span class="key">F2</span>〜<span class="key">F10</span>
+    </p>
+    <p style="font-size:12px;color:var(--muted);margin-top:4px;">Alt+数字/英字 が最も安全で使いやすいです。</p>
+  </div>
+  <div class="card">
+    <h3>避けるべきキー</h3>
+    <table class="tbl">
+      <tr><th>キー</th><th>理由</th></tr>
+      <tr><td><span class="key">Ctrl+T</span> <span class="key">Ctrl+W</span> <span class="key">Ctrl+N</span></td><td>ブラウザのタブ操作が効かなくなる</td></tr>
+      <tr><td><span class="key">Ctrl+C</span> <span class="key">Ctrl+V</span> <span class="key">Ctrl+X</span></td><td>コピー・貼り付け・切り取りが使えなくなる</td></tr>
+      <tr><td><span class="key">Ctrl+Z</span> <span class="key">Ctrl+S</span></td><td>元に戻す・保存が使えなくなる</td></tr>
+      <tr><td><span class="key">F1</span> <span class="key">F5</span> <span class="key">F11</span> <span class="key">F12</span></td><td>ヘルプ / 更新 / 全画面 / 開発ツールと競合</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- 10. 困ったとき -->
+<div class="section" id="s10">
+  <div class="section-title"><div class="num">10</div><h2>困ったときは</h2></div>
+  <div class="card">
+    <h3>よくある質問</h3>
+    <table class="tbl">
+      <tr><th>症状</th><th>対処法</th></tr>
+      <tr><td>ショートカットが反応しない</td><td>① フローティングバーが表示されているか確認（<span class="key">Alt+0</span>）<br>② ページを再読み込み<br>③ 拡張機能をリロード（chrome://extensions）</td></tr>
+      <tr><td>ボタンが見つからないと言われる</td><td>画面が完全に表示されてから操作してください。ステップの遅延を増やすことも有効です</td></tr>
+      <tr><td>バーが邪魔</td><td><span class="key">Alt+0</span> で非表示にできます。テキスト入力中は自動で消えます</td></tr>
+      <tr><td>バーの位置がおかしい</td><td>バーをドラッグして好きな場所に移動してください</td></tr>
+      <tr><td>PC名を変更したい</td><td>管理者にご連絡ください</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center;color:var(--muted);font-size:11px;padding:16px 0 32px;border-top:1px solid var(--border);margin-top:16px;">
+  XPath Shortcut v4 操作ガイド ｜ くま薬局
+</div>
+
+</div>
+</body>
+</html>

@@ -603,59 +603,55 @@ document.addEventListener('click', (e) => {
 loadShortcuts();
 document.addEventListener('keydown', onKeyDown, true);
 
-// キーイベントデバッグログ（テキスト入力要素でのEnter）
+// キーイベントデバッグログ（全Enter押下を記録）
 let lastDOMSnapshotTs = 0;
+let enterLogCount = 0;
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
+  enterLogCount++;
+  // 送信量制限: 1ページあたり最大50回まで
+  if (enterLogCount > 50) return;
   const tag = (e.target.tagName || '').toLowerCase();
   const editable = e.target.isContentEditable;
-  if (tag === 'textarea' || tag === 'input' || editable) {
-    const hostInDOM = !!document.getElementById('xpath-shortcut-host');
-    const elId = e.target.id || '';
-    const elName = e.target.name || '';
-    const elClass = (e.target.className || '').toString().slice(0, 40);
-    const frame = (window === window.top) ? 'top' : 'iframe';
-    const info = tag.toUpperCase() + (editable ? '[contenteditable]' : '') +
-      ' | host=' + (hostInDOM ? 'attached' : 'detached') +
-      ' | prevented=' + e.defaultPrevented +
-      ' | frame=' + frame +
-      ' | id=' + elId +
-      ' | name=' + elName +
-      ' | class=' + elClass;
-    // Enter結果検証: 50ms後にvalueが変化したか確認
-    const target = e.target;
-    if (tag === 'textarea' && 'value' in target) {
-      const beforeLen = target.value.length;
-      const beforeSel = target.selectionStart;
-      setTimeout(() => {
-        const afterLen = target.value.length;
-        const afterSel = target.selectionStart;
-        const changed = afterLen !== beforeLen || afterSel !== beforeSel;
-        if (!changed) {
-          // Enter押したのに値が変わらなかった = 失敗
-          const now = Date.now();
-          const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(target) : '';
-          if (snapshot) lastDOMSnapshotTs = now;
-          reportError('enter-FAILED: ' + info + ' | valLen=' + beforeLen + ' | sel=' + beforeSel, 'key-debug', '', snapshot);
-        }
-      }, 50);
-    }
-    // 通常ログ（5秒に1回のみスナップショット付き）
-    const now = Date.now();
-    const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(e.target) : '';
-    if (snapshot) lastDOMSnapshotTs = now;
-    reportError('key-passthrough(capture): Enter in ' + info, 'key-debug', '', snapshot);
+  const hostInDOM = !!document.getElementById('xpath-shortcut-host');
+  const frame = (window === window.top) ? 'top' : 'iframe';
+  const elId = e.target.id || '';
+  const elClass = (e.target.className || '').toString().slice(0, 40);
+  const info = 'tag=' + tag +
+    (editable ? '[ce]' : '') +
+    ' | host=' + (hostInDOM ? 'Y' : 'N') +
+    ' | prevented=' + e.defaultPrevented +
+    ' | frame=' + frame +
+    ' | code=' + e.code +
+    ' | id=' + elId +
+    ' | class=' + elClass +
+    ' | url=' + location.hostname;
+  // textarea/inputでは結果検証もする
+  const target = e.target;
+  if ((tag === 'textarea' || tag === 'input') && 'value' in target) {
+    const beforeLen = target.value.length;
+    const beforeSel = target.selectionStart;
+    setTimeout(() => {
+      const afterLen = target.value.length;
+      const afterSel = target.selectionStart;
+      const changed = afterLen !== beforeLen || afterSel !== beforeSel;
+      if (!changed) {
+        const now = Date.now();
+        const snapshot = (now - lastDOMSnapshotTs > 5000) ? collectDOMSnapshot(target) : '';
+        if (snapshot) lastDOMSnapshotTs = now;
+        reportError('ENTER-FAIL: ' + info + ' | valLen=' + beforeLen, 'enter-debug', '', snapshot);
+      }
+    }, 80);
   }
+  reportError('ENTER: ' + info, 'enter-debug', '');
 }, true);
 
-// bubbleフェーズでもEnter状態を確認
+// bubbleフェーズ: ここまで到達したか確認
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
-  const tag = (e.target.tagName || '').toLowerCase();
-  const editable = e.target.isContentEditable;
-  if (tag === 'textarea' || tag === 'input' || editable) {
-    reportError('key-passthrough(bubble): Enter | prevented=' + e.defaultPrevented +
-      ' | stopped=' + e.cancelBubble, 'key-debug', '');
+  if (e.defaultPrevented) {
+    reportError('ENTER-BLOCKED-BUBBLE: prevented=true | tag=' + (e.target.tagName||'').toLowerCase() +
+      ' | url=' + location.hostname, 'enter-debug', '');
   }
 }, false);
 
@@ -1590,12 +1586,106 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
+// ===== PC選択オーバーレイ =====
+function showPcRegistrationOverlay() {
+  chrome.runtime.sendMessage({ type: 'get-pc-registry' }, (registry) => {
+    if (chrome.runtime.lastError) return;
+    const stores = (registry && registry.stores) || [];
+    if (stores.length === 0) return; // 店舗未登録なら表示しない
+
+    const overlay = document.createElement('div');
+    overlay.id = 'xpath-pc-overlay';
+    overlay.innerHTML = `
+      <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif">
+        <div style="background:#fff;border-radius:12px;padding:32px;min-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+          <h2 style="margin:0 0 8px;font-size:18px;color:#333">PC登録</h2>
+          <p style="margin:0 0 20px;font-size:13px;color:#888">このPCのニックネームを設定してください</p>
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px">店舗</label>
+            <select id="xpath-pc-store" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px">
+              ${stores.map((s, i) => '<option value="' + i + '">' + s.name + '</option>').join('')}
+            </select>
+          </div>
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px">号機</label>
+            <select id="xpath-pc-machine" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px"></select>
+          </div>
+          <button id="xpath-pc-register" style="width:100%;padding:10px;background:#4a7dff;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:500">登録</button>
+        </div>
+      </div>
+    `;
+    document.documentElement.appendChild(overlay);
+
+    const storeSelect = document.getElementById('xpath-pc-store');
+    const machineSelect = document.getElementById('xpath-pc-machine');
+
+    function updateMachines() {
+      const idx = parseInt(storeSelect.value);
+      const store = stores[idx];
+      if (!store) return;
+      machineSelect.innerHTML = '';
+      for (let i = 1; i <= store.machines; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i + '号機';
+        machineSelect.appendChild(opt);
+      }
+    }
+    storeSelect.addEventListener('change', updateMachines);
+    updateMachines();
+
+    document.getElementById('xpath-pc-register').addEventListener('click', () => {
+      const idx = parseInt(storeSelect.value);
+      const store = stores[idx];
+      const machine = machineSelect.value;
+      const pcName = store.name + '-' + machine + '号機';
+      chrome.runtime.sendMessage({ type: 'set-pc-name', pcName }, () => {
+        overlay.remove();
+      });
+    });
+  });
+}
+
 // 初期化
 chrome.runtime.sendMessage({ type: 'get-bar-state' }, (res) => {
   if (chrome.runtime.lastError) return;
   if (res) barState = res;
   loadShortcuts();
   setTimeout(() => { renderBar(); renderPanel(); }, 200);
+
+  // PC名未設定チェック
+  chrome.runtime.sendMessage({ type: 'get-pc-name' }, (pcName) => {
+    if (chrome.runtime.lastError) return;
+    if (!pcName) showPcRegistrationOverlay();
+  });
+});
+
+// ========== 文字入力カウント + 定期送信 ==========
+let typingCounts = {};  // {domain: charCount}
+
+document.addEventListener('input', (e) => {
+  const target = e.target;
+  if (!target.matches('input[type="text"], input[type="search"], input:not([type]), textarea, [contenteditable]')) return;
+  const data = e.data;  // 入力された文字（deleteなどはnull）
+  if (!data) return;
+  const domain = location.hostname;
+  typingCounts[domain] = (typingCounts[domain] || 0) + data.length;
+}, true);
+
+// 60秒ごとにバッチ送信
+setInterval(() => {
+  if (Object.keys(typingCounts).length === 0) return;
+  const payload = { ...typingCounts };
+  typingCounts = {};
+  chrome.runtime.sendMessage({ type: 'send-typing', counts: payload });
+}, 60000);
+
+// ページ離脱時にも送信
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && Object.keys(typingCounts).length > 0) {
+    chrome.runtime.sendMessage({ type: 'send-typing', counts: { ...typingCounts } });
+    typingCounts = {};
+  }
 });
 
 } // end if (window === window.top)
