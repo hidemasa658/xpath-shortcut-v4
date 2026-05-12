@@ -1,6 +1,7 @@
 const ANALYTICS_BASE = 'http://133.167.80.39/xpath-analytics/api';
 const ANALYTICS_URL = ANALYTICS_BASE + '/log';
 const ERROR_URL = ANALYTICS_BASE + '/error';
+const DOM_SCAN_URL = ANALYTICS_BASE + '/dom-scan';
 
 // ユーザーID取得（初回生成）
 async function getUserId() {
@@ -99,6 +100,37 @@ async function sendError(errorData, tabUrl) {
         context: errorData.context || '',
         xpath: errorData.xpath || '',
         stack: errorData.stack || '',
+      })
+    }).catch(() => {});
+  } catch(e) {}
+}
+
+async function sendDomScan(scanData, tabUrl) {
+  try {
+    const userId = await getUserId();
+    const pcName = await getPcName();
+    let domain = '';
+    try { domain = new URL(tabUrl).hostname; } catch(e) {}
+    // scanData.message から要素リストをパース
+    const elements = [];
+    const lines = (scanData.message || '').split('\n');
+    for (const line of lines) {
+      const m = line.match(/^\d+\.\s+(.+?)\s+←\s+(.+)$/);
+      if (m) {
+        elements.push({ xpath: m[1].trim(), info: m[2].trim(), tag: (m[2].match(/^(\w+)/) || ['',''])[1] });
+      }
+    }
+    if (elements.length === 0) return;
+    fetch(DOM_SCAN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        pc_name: pcName,
+        url: tabUrl,
+        domain: domain,
+        container: scanData.xpath || '',
+        elements: elements,
       })
     }).catch(() => {});
   } catch(e) {}
@@ -354,7 +386,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // エラーログ受信
   if (msg.type === 'report-error') {
     const url = sender.tab?.url || '';
-    sendError(msg, url);
+    if (msg.context === 'dom-scan') {
+      sendDomScan(msg, url);
+    } else {
+      sendError(msg, url);
+    }
     return;
   }
 
