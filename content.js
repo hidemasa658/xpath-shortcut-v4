@@ -985,7 +985,17 @@ function scanInteractiveElements(container) {
     return;
   }
 
-  // サーバーに送信
+  // 構造化データで送信
+  try {
+    chrome.runtime.sendMessage({
+      type: 'dom-scan',
+      container: genSelector(container),
+      containerLabel: containerLabel,
+      elements: results,
+    });
+  } catch(e) {}
+
+  // コンソール用テキスト（従来互換）
   const lines = results.map((r, i) => {
     const parts = [r.tag];
     if (r.type) parts.push('type=' + r.type);
@@ -999,7 +1009,7 @@ function scanInteractiveElements(container) {
     if (r.context === 'iframe') parts.push('[iframe]');
     return (i+1) + '. ' + r.xpath + ' ← ' + parts.join('|');
   });
-  reportError('📸 ' + containerLabel + ' ' + results.length + '件:\n' + lines.join('\n'), 'dom-scan', genSelector(container));
+  console.log('📸 ' + containerLabel + ' ' + results.length + '件:\n' + lines.join('\n'));
 }
 
 function describeInteractive(el) {

@@ -111,15 +111,19 @@ async function sendDomScan(scanData, tabUrl) {
     const pcName = await getPcName();
     let domain = '';
     try { domain = new URL(tabUrl).hostname; } catch(e) {}
-    // scanData.message から要素リストをパース
-    const elements = [];
-    const lines = (scanData.message || '').split('\n');
-    for (const line of lines) {
-      const m = line.match(/^\d+\.\s+(.+?)\s+←\s+(.+)$/);
-      if (m) {
-        elements.push({ xpath: m[1].trim(), info: m[2].trim(), tag: (m[2].match(/^(\w+)/) || ['',''])[1] });
-      }
-    }
+    const elements = (scanData.elements || []).map(el => ({
+      xpath: el.xpath || '',
+      tag: el.tag || '',
+      id: el.id || '',
+      class: el.class || '',
+      name: el.name || '',
+      type: el.type || '',
+      role: el.role || '',
+      ariaLabel: el.ariaLabel || '',
+      placeholder: el.placeholder || '',
+      text: el.text || '',
+      custom: !!el.custom,
+    }));
     if (elements.length === 0) return;
     fetch(DOM_SCAN_URL, {
       method: 'POST',
@@ -129,7 +133,8 @@ async function sendDomScan(scanData, tabUrl) {
         pc_name: pcName,
         url: tabUrl,
         domain: domain,
-        container: scanData.xpath || '',
+        container: scanData.container || '',
+        containerLabel: scanData.containerLabel || '',
         elements: elements,
       })
     }).catch(() => {});
@@ -384,13 +389,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   // エラーログ受信
+  if (msg.type === 'dom-scan') {
+    const url = sender.tab?.url || '';
+    sendDomScan(msg, url);
+    return;
+  }
+
   if (msg.type === 'report-error') {
     const url = sender.tab?.url || '';
-    if (msg.context === 'dom-scan') {
-      sendDomScan(msg, url);
-    } else {
-      sendError(msg, url);
-    }
+    sendError(msg, url);
     return;
   }
 
