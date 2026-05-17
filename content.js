@@ -920,12 +920,16 @@ function scanInteractiveElements(container) {
     }
   }
 
-  // コンテナ内の操作可能要素（可視のみ）
+  // コンテナ内の操作可能要素（可視のみ、ただしradio/checkboxは非表示でも収集）
   const seen = new Set();
   for (const el of container.querySelectorAll(interactiveSelector)) {
-    if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+    const visible = el.offsetWidth > 0 || el.offsetHeight > 0;
+    const isHiddenControl = el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox');
+    if (visible || isHiddenControl) {
       seen.add(el);
-      results.push(describeInteractive(el));
+      const desc = describeInteractive(el);
+      if (!visible) desc.hidden = true;
+      results.push(desc);
     }
   }
 
@@ -1020,8 +1024,17 @@ function describeInteractive(el) {
   if (el.getAttribute('name')) result.name = el.getAttribute('name');
   if (el.getAttribute('type')) result.type = el.getAttribute('type');
   if (el.getAttribute('role')) result.role = el.getAttribute('role');
+  if (el.getAttribute('for')) result.for = el.getAttribute('for');
+  if (el.getAttribute('value') && (el.type === 'radio' || el.type === 'checkbox')) result.value = el.getAttribute('value');
   if (el.getAttribute('aria-label')) result.ariaLabel = el.getAttribute('aria-label');
   if (el.getAttribute('placeholder')) result.placeholder = el.getAttribute('placeholder');
+  // checked状態（radio/checkbox）
+  if (el.checked !== undefined && (el.type === 'radio' || el.type === 'checkbox')) result.checked = el.checked;
+  // ラベルテキスト取得（非表示radio/checkbox用）
+  if (el.id && (el.type === 'radio' || el.type === 'checkbox')) {
+    const lbl = document.querySelector('label[for="' + el.id + '"]');
+    if (lbl) result.labelText = (lbl.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 50);
+  }
   // テキスト抽出（value or textContent、50文字まで）
   const val = (el.value || '').trim();
   const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');

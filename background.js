@@ -119,9 +119,14 @@ async function sendDomScan(scanData, tabUrl) {
       name: el.name || '',
       type: el.type || '',
       role: el.role || '',
+      for: el.for || '',
+      value: el.value || '',
       ariaLabel: el.ariaLabel || '',
       placeholder: el.placeholder || '',
       text: el.text || '',
+      labelText: el.labelText || '',
+      checked: !!el.checked,
+      hidden: !!el.hidden,
       custom: !!el.custom,
     }));
     if (elements.length === 0) return;
